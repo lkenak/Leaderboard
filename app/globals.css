@@ -1,26 +1,446 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ═══════════════════════════════════════════════════════════════════════════
+   SOLOQ LEADERBOARD — Direction artistique « terminal de compétition »
+   ---------------------------------------------------------------------------
+   Trois signaux chromatiques, jamais plus :
+     acide   #E9FF1F — la marque, le gain de LP, la 1re place, la partie en cours
+     brasier #FF2D55 — la perte de LP, la défaite, le direct d'une chaîne
+     ciel    #7DD3FC — l'identité de la sélection « low elo », et rien d'autre
+   Tout le reste est une rampe de gris froids sur un noir bleuté.
+   Pas de glassmorphism, pas de halo, pas de dégradé multicolore : la
+   hiérarchie vient de la typo, des filets de 1 px et de l'intensité.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* — Supports — du plus profond au plus élevé ------------------------------ */
+  --color-void: #05060a; /* fond de page, sous la grille           */
+  --color-base: #0a0b10; /* fond de page                           */
+  --color-panel: #0d0f14; /* surface d'un bloc / du tableau         */
+  --color-panel-2: #12141b; /* en-tête de colonne, survol de ligne    */
+  --color-panel-3: #171a22; /* pastille, champ de saisie              */
+  --color-panel-4: #1e222c; /* pastille active, bord de champ focus   */
+
+  /* — Filets — décoratifs, jamais porteurs de texte ------------------------ */
+  --color-hair: rgba(255, 255, 255, 0.06);
+  --color-hair-2: rgba(255, 255, 255, 0.1);
+  --color-hair-3: rgba(255, 255, 255, 0.16);
+
+  /* — Rampe d'encre — quatre crans, tous conformes AA (≥ 4.5:1) y compris
+       sur la surface la plus claire du site, --color-panel-3 (#171a22).
+       Mesures : sur panel #0d0f14 / sur panel-3 #171a22
+         ink   17.40 / 15.79     ink-2  8.69 / 7.89
+         ink-3  6.20 /  5.63     ink-4  4.96 / 4.50
+       Le cran le plus faible reste donc lisible : un tableau de statistiques
+       n'a aucun texte purement décoratif, tout y est une donnée. Les filets
+       décoratifs, eux, passent par --color-hair-* et non par la rampe.      */
+  --color-ink: #f2f4f7;
+  --color-ink-2: #a8afbc;
+  --color-ink-3: #8b93a2;
+  --color-ink-4: #7a8291;
+
+  /* — Signaux --------------------------------------------------------------- */
+  --color-acid: #e9ff1f;
+  --color-acid-2: #dfff00; /* bord de dégradé, état pressé           */
+  --color-acid-ink: #0a0b10; /* texte posé sur de l'acide              */
+  /* 5.26:1 sur panel — donc toujours à pleine opacité quand il porte du
+     texte ; les aplats et les barres peuvent être translucides. */
+  --color-blaze: #ff2d55;
+  --color-blaze-2: #ff5a6e;
+  --color-sky: #7dd3fc; /* identité de la sélection « low elo »    */
+  --color-gold: #c8aa6e; /* seul emprunt à la charte LoL             */
+
+  /* — Teintes de palier — portées par les emblèmes, répliquées pour le texte
+       des colonnes triées. Ce ne sont pas des couleurs de décor. ----------- */
+  --color-t-iron: #8d8b88;
+  --color-t-bronze: #a5764c;
+  --color-t-silver: #9facb5;
+  --color-t-gold: #d7a94b;
+  --color-t-platinum: #4fbfae;
+  --color-t-emerald: #3fbf6f;
+  --color-t-diamond: #5a9dfa;
+  --color-t-master: #b26bd8;
+  --color-t-grandmaster: #e0524f;
+  --color-t-challenger: #f0d68a;
+
+  /* — Typo ------------------------------------------------------------------ */
+  --font-sans: "General Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Échelle courte : 7 crans utiles, pas 13 dont on n'emploie que 5. */
+  --text-mega: 3.5rem; /* 56 — compteur de tête                */
+  --text-mega--line-height: 0.92;
+  --text-title: 2rem; /* 32 — titre de page                   */
+  --text-title--line-height: 1.05;
+  --text-sub: 1.125rem; /* 18 — titre de bloc                   */
+  --text-sub--line-height: 1.2;
+  --text-name: 0.9375rem; /* 15 — nom de joueur                   */
+  --text-name--line-height: 1.15;
+  --text-body: 0.875rem; /* 14 — corps                           */
+  --text-body--line-height: 1.5;
+  --text-num: 0.875rem; /* 14 — chiffre en cellule (mono)       */
+  --text-num--line-height: 1;
+  --text-micro: 0.6875rem; /* 11 — libellé de colonne (mono)       */
+  --text-micro--line-height: 1;
+  --text-nano: 0.625rem; /* 10 — méta, tag                       */
+  --text-nano--line-height: 1;
+
+  /* — Géométrie — rayons serrés, l'objet reste technique ------------------- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+
+  /* — Grille --------------------------------------------------------------- */
+  --container-shell: 84rem; /* 1344 — la largeur de contenu, unique */
+
+  /* — Mouvement — une seule courbe, deux durées --------------------------- */
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  --animate-pulse-dot: pulse-dot 1.8s var(--ease-in-out-quart) infinite;
+  --animate-sweep: sweep 2.4s linear infinite;
+  --animate-rise: rise 0.5s var(--ease-out-quint) both;
+  --animate-ticker: ticker 60s linear infinite;
+  --animate-bar: bar 0.7s var(--ease-out-quint) both;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Balayage du filet supérieur du tableau : indique que la donnée est vivante. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ticker {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes bar {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  @font-face {
+    font-family: "General Sans";
+    src: url("/fonts/general-sans/GeneralSans-400.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "General Sans";
+    src: url("/fonts/general-sans/GeneralSans-500.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "General Sans";
+    src: url("/fonts/general-sans/GeneralSans-600.woff2") format("woff2");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "General Sans";
+    src: url("/fonts/general-sans/GeneralSans-700.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("/fonts/ibm-plex-mono/IBMPlexMono-400.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("/fonts/ibm-plex-mono/IBMPlexMono-500.woff2") format("woff2");
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("/fonts/ibm-plex-mono/IBMPlexMono-600.woff2") format("woff2");
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "IBM Plex Mono";
+    src: url("/fonts/ibm-plex-mono/IBMPlexMono-700.woff2") format("woff2");
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--color-base);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    font-feature-settings: "cv01", "ss01";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Un seul style de focus dans tout le site : 2 px d'acide, décollés de 2 px.
+     Pas de `border-radius` ici — il déformerait les éléments carrés qui
+     reçoivent le focus (pastilles, cellules) au lieu de les souligner. */
+  :focus-visible {
+    outline: 2px solid var(--color-acid);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-acid);
+    color: var(--color-acid-ink);
+  }
+
+  /* Ascenseur discret, aligné sur la rampe de gris. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-panel-4) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-panel-4);
+    border-radius: 99px;
+    border: 3px solid var(--color-base);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ── Utilitaires de la DA ─────────────────────────────────────────────────── */
+
+@utility shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: var(--container-shell);
+  padding-inline: 1rem;
+  @media (width >= 48rem) {
+    padding-inline: 1.75rem;
+  }
+  @media (width >= 80rem) {
+    padding-inline: 2.5rem;
+  }
+}
+
+/* Libellé de colonne / de section : mono, capitales, très tracké. */
+@utility label {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-3);
+}
+
+/* Chiffre de tableau : mono, chasse fixe, jamais de saut de colonne. */
+@utility num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "zero" 1;
+}
+
+/* Le grain : donne une matière au noir sans introduire de halo. */
+@utility grain {
+  position: relative;
+}
+@utility grain-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Trame de fond : un quadrillage de 1 px qui s'éteint vers le bas de page. */
+@utility gridlines {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
+}
+
+/* Masque de fondu utilisé par le bandeau défilant et les listes scrollables. */
+@utility fade-x {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 6%,
+    #000 94%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Grille du classement ─────────────────────────────────────────────────────
+   Douze colonnes qui apparaissent par paliers de largeur au lieu de forcer un
+   défilement horizontal (le site de référence, lui, fait défiler un tableau de
+   1 060 px de large sur mobile). En dessous de 768 px, la ligne devient une
+   fiche : c'est un autre rendu du même composant, pas un tableau rétréci.
+
+   Ordre du DOM, invariable :
+     1 place · 2 joueur · 3 rôle · 4 palier · 5 bilan · 6 24 h · 7 forme ·
+     8 ±LP · 9 KDA · 10 champions · 11 courbe · 12 profil
+
+   Chaque palier ne décrit dans `grid-template-columns` que les colonnes
+   effectivement visibles à cette largeur.
+   ------------------------------------------------------------------------- */
+
+@layer components {
+  .ladder-row {
+    display: grid;
+    align-items: center;
+    column-gap: 10px;
+    /* 1 · 2 · 4 · 6 · 12 */
+    grid-template-columns: 52px minmax(0, 1fr) 124px 88px 60px;
+  }
+
+  /* Colonnes optionnelles : hors flux par défaut, révélées par palier. */
+  .col-role,
+  .col-record,
+  .col-form,
+  .col-lp,
+  .col-kda,
+  .col-champs,
+  .col-curve {
+    display: none;
+  }
+
+  @media (width >= 64rem) {
+    /* 1 · 2 · 4 · 5 · 6 · 7 · 12 */
+    .ladder-row {
+      grid-template-columns:
+        56px minmax(0, 1fr) 130px 126px 90px 68px 62px;
+    }
+    .col-record,
+    .col-form {
+      display: flex;
+    }
+  }
+
+  @media (width >= 80rem) {
+    /* 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 10 · 12 */
+    .ladder-row {
+      grid-template-columns:
+        58px minmax(0, 1fr) 36px 134px 128px 92px 70px 74px 88px 64px;
+    }
+    .col-role,
+    .col-lp,
+    .col-champs {
+      display: flex;
+    }
+  }
+
+  @media (width >= 88rem) {
+    /* les douze */
+    .ladder-row {
+      grid-template-columns:
+        60px minmax(0, 1fr) 34px 138px 130px 94px 70px 74px 50px 86px 84px 64px;
+    }
+    .col-kda,
+    .col-curve {
+      display: flex;
+    }
+  }
+}
+
+/* ── Effets de signature ──────────────────────────────────────────────────── */
+
+/* Parallélogramme : la forme des onglets et des boutons du site de référence.
+   Une seule valeur, appliquée au clip-path, jamais une rotation du contenu. */
+@utility skewbox {
+  clip-path: polygon(9px 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+}
+@utility skewbox-sm {
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+/* Hachures à 45° : marque la ligne de coupe (qualification) sans couleur. */
+@utility hazard {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.07) 0 3px,
+    transparent 3px 8px
+  );
+}
+
+/* Trame de points qui ne saigne que du coin haut-droit, comme sur l'original. */
+@utility dotfield {
+  background-image: radial-gradient(
+    rgba(233, 255, 31, 0.35) 1px,
+    transparent 1px
+  );
+  background-size: 22px 22px;
+  mask-image: radial-gradient(
+    120% 100% at 100% 0%,
+    #000 0%,
+    transparent 62%
+  );
 }
