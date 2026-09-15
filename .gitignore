@@ -45,3 +45,6 @@ next-env.d.ts
 
 # la clé Riot ne doit jamais être commitée — seul le gabarit l'est
 !.env.example
+
+# répertoire de travail de Claude Code (worktrees locaux)
+/.claude/
