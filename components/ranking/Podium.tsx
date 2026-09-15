@@ -1,13 +1,13 @@
 import Image from "next/image";
 import { cn } from "@/lib/cn";
-import { emblemSrc, profileIconSrc, rankLabel } from "@/lib/lol";
+import { emblemSrc, rankLabel } from "@/lib/lol";
 import { kdaLabel, thousands } from "@/lib/format";
 import type { RankingEntry } from "@/lib/types";
 import { PositionBadge } from "@/components/ui/PositionBadge";
 import { RoleIcon } from "@/components/ui/RoleIcon";
 import { ChampionIcon } from "@/components/ui/ChampionIcon";
 import { Delta } from "@/components/ui/Delta";
-import { Flag } from "@/components/ui/Flag";
+import { Avatar } from "@/components/ui/Avatar";
 
 /**
  * Podium — visible à partir de `md`. La hiérarchie entre les trois cartes n'est
@@ -49,22 +49,12 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
             </div>
 
             <div className="mt-5 flex items-center gap-3">
-              <span className="relative shrink-0">
-                <Image
-                  src={profileIconSrc(entry.player.profileIconId)}
-                  alt=""
-                  width={44}
-                  height={44}
-                  className="size-11 rounded-md bg-panel-3 object-cover ring-1 ring-hair-2"
-                />
-                {entry.player.country && (
-                  <Flag
-                    code={entry.player.country}
-                    width={15}
-                    className="absolute -right-1 -bottom-1 ring-[2.5px] ring-panel"
-                  />
-                )}
-              </span>
+              <Avatar
+                profileIconId={entry.player.profileIconId}
+                name={entry.player.gameName}
+                country={entry.player.country}
+                size={44}
+              />
               <div className="min-w-0">
                 <p className="truncate text-[1.0625rem] leading-tight font-semibold text-ink">
                   {entry.player.gameName}

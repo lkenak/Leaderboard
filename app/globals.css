@@ -328,6 +328,30 @@
   );
 }
 
+/* Champ de formulaire de /admin : la seule page à en aligner une douzaine. */
+@utility input {
+  height: 2.375rem;
+  width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-hair);
+  background-color: color-mix(in oklab, var(--color-panel-3) 60%, transparent);
+  padding-inline: 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  transition: border-color 150ms var(--ease-out-quint);
+}
+@utility input {
+  &::placeholder {
+    color: var(--color-ink-4);
+  }
+  &:hover {
+    border-color: var(--color-hair-2);
+  }
+  &:focus {
+    border-color: color-mix(in oklab, var(--color-acid) 50%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

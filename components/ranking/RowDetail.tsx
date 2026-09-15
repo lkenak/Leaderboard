@@ -153,7 +153,16 @@ function HistoryTab({ entry, now }: { entry: RankingEntry; now: number }) {
           </div>
 
           <div className="w-[74px] shrink-0 text-right">
-            <Delta value={game.lpDelta} />
+            {game.lpDelta === null ? (
+              <span
+                className="num text-num text-ink-4"
+                title="Gain de LP inconnu : la partie est antérieure au premier relevé"
+              >
+                — LP
+              </span>
+            ) : (
+              <Delta value={game.lpDelta} />
+            )}
             <p
               className={cn(
                 "num mt-1 text-[0.5625rem] font-semibold tracking-[0.14em]",

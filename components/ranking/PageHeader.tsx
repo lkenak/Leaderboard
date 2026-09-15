@@ -19,17 +19,26 @@ export function PageHeader({
   snapshot: RankingSnapshot;
   now: number;
 }) {
-  const leader = snapshot.entries[0];
+  /* Une sélection peut être vide — plateau tout juste créé, comptes non encore
+     résolus, ou tous les joueurs rangés dans l'autre sélection. Le titre et les
+     compteurs restent affichés : c'est ce qui distingue « rien à montrer pour
+     l'instant » d'une page cassée. */
+  const leader = snapshot.entries.at(0);
   const dayGames = snapshot.entries.reduce((a, e) => a + e.session.games, 0);
   const lpTraded = snapshot.entries.reduce(
-    (a, e) => a + Math.abs(e.session.lp),
+    (a, e) => a + Math.abs(e.session.lp ?? 0),
     0,
   );
-  const best = [...snapshot.entries].sort((a, b) => b.session.lp - a.session.lp)[0];
-  const worst = [...snapshot.entries].sort((a, b) => a.session.lp - b.session.lp)[0];
+  const byDay = (dir: 1 | -1) =>
+    [...snapshot.entries].sort(
+      (a, b) => ((b.session.lp ?? 0) - (a.session.lp ?? 0)) * dir,
+    )[0];
+  const best = byDay(1);
+  const worst = byDay(-1);
   const longestStreak = [...snapshot.entries].sort(
     (a, b) => b.streak.count - a.streak.count,
   )[0];
+  const hasFacts = Boolean(best && worst && longestStreak);
 
   return (
     <section className="pt-10 md:pt-14">
@@ -64,6 +73,7 @@ export function PageHeader({
           </div>
 
           {/* — Leader du jour — */}
+          {leader && (
           <div className="lg:col-span-5 xl:col-span-4">
             <article className="grain relative overflow-hidden rounded-lg border border-hair bg-panel">
               <span className="grain-layer" />
@@ -119,20 +129,22 @@ export function PageHeader({
               </div>
             </article>
           </div>
+          )}
         </div>
 
         {/* — Bandeau de faits du jour : trois faits, séparés par des filets — */}
+        {hasFacts && (
         <div className="mt-10 grid gap-px overflow-hidden rounded-md border border-hair bg-hair sm:grid-cols-3">
           <Fact
             label="Meilleure progression"
             name={best.player.gameName}
-            value={`${signed(best.session.lp)} LP`}
+            value={`${signed(best.session.lp ?? 0)} LP`}
             tone="up"
           />
           <Fact
             label="Plus forte chute"
             name={worst.player.gameName}
-            value={`${signed(worst.session.lp)} LP`}
+            value={`${signed(worst.session.lp ?? 0)} LP`}
             tone="down"
           />
           <Fact
@@ -146,6 +158,7 @@ export function PageHeader({
             tone={longestStreak.streak.type === "win" ? "up" : "down"}
           />
         </div>
+        )}
       </div>
     </section>
   );

@@ -12,8 +12,8 @@ import type { RankingEntry } from "@/lib/types";
  */
 export function Ticker({ entries }: { entries: RankingEntry[] }) {
   const movers = entries
-    .filter((e) => e.session.games > 0)
-    .sort((a, b) => Math.abs(b.session.lp) - Math.abs(a.session.lp))
+    .filter((e) => e.session.games > 0 && e.session.lp !== null)
+    .sort((a, b) => Math.abs(b.session.lp ?? 0) - Math.abs(a.session.lp ?? 0))
     .slice(0, 14);
 
   if (movers.length === 0) return null;
@@ -36,14 +36,14 @@ export function Ticker({ entries }: { entries: RankingEntry[] }) {
             <span
               className={cn(
                 "num text-[0.75rem] font-medium tabular-nums",
-                entry.session.lp > 0
+                (entry.session.lp ?? 0) > 0
                   ? "text-acid"
-                  : entry.session.lp < 0
+                  : (entry.session.lp ?? 0) < 0
                     ? "text-blaze"
                     : "text-ink-4",
               )}
             >
-              {signed(entry.session.lp)} LP
+              {signed(entry.session.lp ?? 0)} LP
             </span>
             <span className="num text-[0.6875rem] text-ink-4">
               {entry.session.wins}V·{entry.session.losses}D

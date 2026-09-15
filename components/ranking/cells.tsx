@@ -125,7 +125,14 @@ export function SessionCell({ entry }: { entry: RankingEntry }) {
       </span>
     );
   return (
-    <span className="flex flex-col items-center gap-1">
+    <span
+      className="flex flex-col items-center gap-1"
+      title={
+        entry.session.partial
+          ? "Fenêtre plus courte que 24 h : le suivi vient de commencer"
+          : undefined
+      }
+    >
       <Delta value={entry.session.lp} unit={null} />
       <span className="num text-[0.625rem] text-ink-4 tabular-nums">
         {entry.session.wins}V·{entry.session.losses}D

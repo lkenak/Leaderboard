@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Logo } from "./Logo";
 
 export function Footer({ updatedLabel }: { updatedLabel: string }) {
@@ -25,10 +26,26 @@ export function Footer({ updatedLabel }: { updatedLabel: string }) {
             title="Données"
             items={["Riot API", "Data Dragon", "Méthode de calcul", "Statut"]}
           />
-          <FooterColumn
-            title="Projet"
-            items={["À propos", "Journal", "Contact"]}
-          />
+          <div>
+            <h2 className="label">Projet</h2>
+            <ul className="mt-3 space-y-2">
+              <li>
+                <Link
+                  href="/admin"
+                  className="text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-acid"
+                >
+                  Plateau suivi
+                </Link>
+              </li>
+              {["À propos", "Journal", "Contact"].map((item) => (
+                <li key={item}>
+                  <span className="cursor-default text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-ink-2">
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
 

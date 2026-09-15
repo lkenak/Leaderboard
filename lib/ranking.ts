@@ -29,15 +29,20 @@ const ROLE_ORDER: Record<Role, number> = {
   UTILITY: 4,
 };
 
-/** Moyennes de LP gagnés / perdus sur la fenêtre de parties récentes. */
+/**
+ * Moyennes de LP gagnés / perdus sur la fenêtre de parties récentes. Les
+ * parties dont le delta est inconnu sont écartées du calcul plutôt que comptées
+ * pour zéro, qui tirerait la moyenne vers le bas sans raison.
+ */
 export function lpAverages(entry: RankingEntry): { win: number; loss: number } {
-  const wins = entry.recentGames.filter((g) => g.win);
-  const losses = entry.recentGames.filter((g) => !g.win);
+  const known = entry.recentGames.filter(
+    (g): g is typeof g & { lpDelta: number } => g.lpDelta !== null,
+  );
   const avg = (xs: number[]) =>
     xs.length === 0 ? 0 : Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
   return {
-    win: avg(wins.map((g) => g.lpDelta)),
-    loss: avg(losses.map((g) => g.lpDelta)),
+    win: avg(known.filter((g) => g.win).map((g) => g.lpDelta)),
+    loss: avg(known.filter((g) => !g.win).map((g) => g.lpDelta)),
   };
 }
 
@@ -58,7 +63,8 @@ function value(entry: RankingEntry, key: SortKey): number | string {
     case "games":
       return entry.games;
     case "session":
-      return entry.session.lp;
+      // Une variation inconnue se classe comme une absence de mouvement.
+      return entry.session.lp ?? 0;
     case "lp":
       return lpAverages(entry).win;
     case "kda":
@@ -153,7 +159,7 @@ export function reposition(entries: RankingEntry[]): RankingEntry[] {
     (a, b) => b.absoluteLp - a.absoluteLp || b.rank.wins - a.rank.wins,
   );
   const yesterday = [...entries]
-    .map((e) => ({ puuid: e.player.puuid, lp: e.absoluteLp - e.session.lp }))
+    .map((e) => ({ puuid: e.player.puuid, lp: e.absoluteLp - (e.session.lp ?? 0) }))
     .sort((a, b) => b.lp - a.lp);
   const before = new Map(yesterday.map((e, i) => [e.puuid, i + 1] as const));
 

@@ -64,8 +64,12 @@ export interface GameRecord {
   kills: number;
   deaths: number;
   assists: number;
-  /** Delta de LP réellement observé (gains/pertes variables selon le MMR). */
-  lpDelta: number;
+  /**
+   * Delta de LP observé. `null` quand il est inconnu : `match-v5` ne renvoie
+   * aucun LP, le gain se déduit de deux relevés encadrant la partie. Les
+   * parties antérieures au premier relevé n'en auront donc jamais.
+   */
+  lpDelta: number | null;
   durationSec: number;
   /** Horodatage de fin de partie, en ms. */
   endedAt: number;
@@ -109,8 +113,22 @@ export interface RankingEntry {
   /** Position actuelle (1-indexée) et variation depuis le relevé de la veille. */
   position: number;
   positionDelta: number;
-  /** Bilan des dernières 24 h. */
-  session: { lp: number; wins: number; losses: number; games: number };
+  /**
+   * Bilan des dernières 24 h.
+   *
+   * `lp` est `null` tant qu'aucun relevé ne permet de l'établir : le nombre de
+   * victoires et de défaites vient de l'historique des parties, disponible dès
+   * le premier appel, mais la variation de LP suppose deux relevés encadrant la
+   * fenêtre. `partial` signale une fenêtre plus courte que 24 h, faute
+   * d'historique assez profond.
+   */
+  session: {
+    lp: number | null;
+    wins: number;
+    losses: number;
+    games: number;
+    partial: boolean;
+  };
   /** Forme récente, la partie la plus récente en premier. */
   form: boolean[];
   streak: { type: "win" | "loss" | "none"; count: number };
@@ -123,18 +141,28 @@ export interface RankingEntry {
   peakAbsoluteLp: number;
   live: LiveGame | null;
   recentGames: GameRecord[];
-  /** Dernière partie enregistrée, en ms — sert au libellé « il y a … ». */
-  lastGameAt: number;
+  /**
+   * Dernière partie enregistrée, en ms. `null` quand aucune partie classée
+   * n'est connue — cas d'un compte tout juste ajouté au plateau.
+   */
+  lastGameAt: number | null;
 }
 
 export interface RankingSnapshot {
   /** Identifiant de la sélection (ex. « high-elo »). */
   bracketId: string;
   splitName: string;
-  /** Fin du split, en ms — alimente le compte à rebours. */
-  splitEndsAt: number;
+  /**
+   * Fin du split, en ms. `null` quand elle n'est pas renseignée
+   * (`SPLIT_ENDS_AT`) : le compte à rebours disparaît plutôt que d'afficher une
+   * date inventée.
+   */
+  splitEndsAt: number | null;
   updatedAt: number;
-  /** LP exigés par la dernière place de chaque palier apex, région EUW. */
-  cutoff: { challenger: number; grandmaster: number };
+  /**
+   * LP exigés par la dernière place de chaque palier apex. `null` quand la
+   * coupe n'a pas pu être relevée — le widget est alors masqué.
+   */
+  cutoff: { challenger: number; grandmaster: number } | null;
   entries: RankingEntry[];
 }

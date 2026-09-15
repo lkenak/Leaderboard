@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { cn } from "@/lib/cn";
-import { profileIconSrc, rankLabel } from "@/lib/lol";
+import { rankLabel } from "@/lib/lol";
 import { relativeTime, winratePct } from "@/lib/format";
 import { lpAverages } from "@/lib/ranking";
 import type { RankingEntry } from "@/lib/types";
@@ -12,7 +11,7 @@ import { RoleIcon } from "@/components/ui/RoleIcon";
 import { ChampionIcon } from "@/components/ui/ChampionIcon";
 import { FormStrip } from "@/components/ui/FormStrip";
 import { Sparkline } from "@/components/ui/Sparkline";
-import { Flag } from "@/components/ui/Flag";
+import { Avatar } from "@/components/ui/Avatar";
 import { StreamLink } from "@/components/ui/StreamLink";
 import { Delta } from "@/components/ui/Delta";
 import { StarGlyph } from "./Toolbar";
@@ -79,25 +78,13 @@ export function LadderRow({
         <StarGlyph filled={favourite} />
       </button>
 
-      <span className="relative shrink-0">
-        <Image
-          src={profileIconSrc(player.profileIconId)}
-          alt=""
-          width={34}
-          height={34}
-          className={cn(
-            "size-[34px] rounded-sm bg-panel-3 object-cover",
-            entry.live ? "ring-1 ring-acid/70" : "ring-1 ring-hair",
-          )}
-        />
-        {player.country && (
-          <Flag
-            code={player.country}
-            width={14}
-            className="absolute -right-1 -bottom-[3px] ring-[2.5px] ring-panel"
-          />
-        )}
-      </span>
+      <Avatar
+        profileIconId={player.profileIconId}
+        name={player.gameName}
+        country={player.country}
+        size={34}
+        live={entry.live !== null}
+      />
 
       <span className="min-w-0">
         <span className="flex items-center gap-1.5">
@@ -128,12 +115,14 @@ export function LadderRow({
               {player.team.tag}
             </span>
           )}
-          <span
-            className="num shrink-0 text-[0.625rem] text-ink-4"
-            title="Dernière partie classée"
-          >
-            {relativeTime(entry.lastGameAt, now)}
-          </span>
+          {entry.lastGameAt !== null && (
+            <span
+              className="num shrink-0 text-[0.625rem] text-ink-4"
+              title="Dernière partie classée"
+            >
+              {relativeTime(entry.lastGameAt, now)}
+            </span>
+          )}
         </span>
       </span>
     </>

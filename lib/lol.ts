@@ -1,3 +1,4 @@
+import { DDRAGON_VERSION } from "./champions";
 import {
   APEX_TIERS,
   DIVISIONS,
@@ -128,8 +129,17 @@ export function championSrc(championId: string): string {
   return `/lol/champions/${championId}.png`;
 }
 
+/**
+ * Icône de profil, servie par Data Dragon.
+ *
+ * C'est le seul asset qu'on ne pré-embarque pas : les identifiants d'icônes se
+ * comptent en milliers et dépendent du compte réel de chaque joueur, alors que
+ * les emblèmes, les postes et les 173 champions forment des ensembles finis
+ * qu'on peut héberger. Le navigateur la met en cache, et `Avatar` prévoit
+ * l'échec de chargement.
+ */
 export function profileIconSrc(id: number): string {
-  return `/lol/icons/${id}.png`;
+  return `https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/profileicon/${id}.png`;
 }
 
 const ROLE_FILE: Record<Role, string> = {

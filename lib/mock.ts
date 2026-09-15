@@ -109,9 +109,9 @@ function lpTarget(
 
 const GAMES_WINDOW = 26; // parties conservées pour la forme et la courbe
 
-/** Fin du split — date fixe, sinon le compte à rebours diverge entre le rendu
- *  serveur et l'hydratation. */
-export const SPLIT_ENDS_AT = Date.UTC(2026, 10, 11, 20, 0, 0);
+/** Fin du split — date fixe en mode démonstration, sinon le compte à rebours
+ *  divergerait entre le rendu serveur et l'hydratation. */
+export const SPLIT_ENDS_AT: number | null = Date.UTC(2026, 10, 11, 20, 0, 0);
 
 /** Coupes apex EUW. En production : `GET /apex-cutoff`, rafraîchi toutes les
  *  10 minutes ; ici, deux constantes plausibles. */
@@ -197,7 +197,7 @@ function buildEntry(
   let walk = currentAbs;
   for (const g of games) {
     lpHistory.unshift(walk);
-    walk = Math.max(200, walk - g.lpDelta);
+    walk = Math.max(200, walk - (g.lpDelta ?? 0));
   }
   lpHistory.unshift(walk);
 
@@ -205,10 +205,11 @@ function buildEntry(
   const dayAgo = ctx.now - 24 * 3600_000;
   const dayGames = games.filter((g) => g.endedAt >= dayAgo);
   const session = {
-    lp: dayGames.reduce((a, g) => a + g.lpDelta, 0),
+    lp: dayGames.reduce((a, g) => a + (g.lpDelta ?? 0), 0),
     wins: dayGames.filter((g) => g.win).length,
     losses: dayGames.filter((g) => !g.win).length,
     games: dayGames.length,
+    partial: false,
   };
 
   const form = games.slice(0, 7).map((g) => g.win);
@@ -314,7 +315,7 @@ export function buildSnapshot(
      inventé — un joueur ne peut pas « gagner 3 places » en perdant des LP
      quand personne autour de lui n'en a gagné. */
   const yesterday = [...built]
-    .map((e) => ({ puuid: e.player.puuid, lp: e.absoluteLp - e.session.lp }))
+    .map((e) => ({ puuid: e.player.puuid, lp: e.absoluteLp - (e.session.lp ?? 0) }))
     .sort((a, b) => b.lp - a.lp);
   const yesterdayPosition = new Map(
     yesterday.map((e, i) => [e.puuid, i + 1] as const),

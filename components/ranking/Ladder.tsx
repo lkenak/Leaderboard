@@ -40,9 +40,15 @@ const BRACKET_COLOR: Record<string, string> = {
 export function Ladder({
   snapshots,
   serverNow,
+  banner,
+  demo = false,
 }: {
   snapshots: Record<string, RankingSnapshot>;
   serverNow: number;
+  /** Bandeau d'état rendu côté serveur (clé absente, plateau vide, erreurs). */
+  banner?: React.ReactNode;
+  /** `true` quand les chiffres viennent du jeu de démonstration. */
+  demo?: boolean;
 }) {
   /* — Horloge de page, au pas de la minute : elle ne sert qu'aux libellés
        « il y a … ». Les chronomètres de partie s'abonnent séparément à la
@@ -122,6 +128,8 @@ export function Ladder({
     <>
       <Ticker entries={snapshot.entries} />
 
+      {banner}
+
       <PageHeader snapshot={snapshot} now={now} />
 
       <section className="shell mt-14">
@@ -138,13 +146,17 @@ export function Ladder({
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <span className="hidden lg:block">
-                <CutoffWidget
-                  challenger={snapshot.cutoff.challenger}
-                  grandmaster={snapshot.cutoff.grandmaster}
-                />
-              </span>
-              <Countdown endsAt={snapshot.splitEndsAt} serverNow={serverNow} />
+              {snapshot.cutoff && (
+                <span className="hidden lg:block">
+                  <CutoffWidget
+                    challenger={snapshot.cutoff.challenger}
+                    grandmaster={snapshot.cutoff.grandmaster}
+                  />
+                </span>
+              )}
+              {snapshot.splitEndsAt !== null && (
+                <Countdown endsAt={snapshot.splitEndsAt} serverNow={serverNow} />
+              )}
             </div>
           </div>
           <p className="mt-3 text-[0.8125rem] text-ink-3 md:hidden">
@@ -198,7 +210,13 @@ export function Ladder({
                 onRecordMode={setRecordMode}
               />
 
-              {visible.length === 0 ? (
+              {snapshot.entries.length === 0 ? (
+                /* Sélection vide : pas de filtre à réinitialiser, le problème
+                   est en amont — aucun compte classé ici pour l'instant. */
+                <p className="px-4 py-16 text-center text-[0.875rem] text-ink-3">
+                  Aucun joueur classé dans cette sélection pour l&apos;instant.
+                </p>
+              ) : visible.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 px-4 py-16">
                   <p className="text-[0.875rem] text-ink-3">
                     Aucun joueur ne correspond à ce filtre.
@@ -250,9 +268,10 @@ export function Ladder({
 
             <p className={cn("mt-4 text-[0.75rem] text-ink-4")}>
               Cliquez une ligne pour ouvrir l&apos;historique des parties. Les
-              places et les variations sont recalculées à chaque relevé ; les
-              données affichées ici sont fictives en attendant le branchement sur
-              l&apos;API Riot.
+              places et les variations sont recalculées à chaque relevé
+              {demo
+                ? " ; les chiffres affichés ici sont fictifs, aucun compte n'est encore suivi."
+                : ", à partir des rangs relevés sur l'API Riot."}
             </p>
           </div>
         </Reveal>

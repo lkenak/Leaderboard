@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# données locales du classement (roster, relevés de LP, parties)
+/.data/
+
+# la clé Riot ne doit jamais être commitée — seul le gabarit l'est
+!.env.example
