@@ -24,7 +24,18 @@ rsync -a --delete public/ "$CURRENT/public/"
 rsync -a --delete db/ "$CURRENT/db/"
 
 sudo systemctl restart leaderboard
-sleep 3
-curl --fail --silent --show-error -o /dev/null http://127.0.0.1:3000/login \
-  && echo "déployé — /login répond" \
-  || { echo "le site ne répond pas : sudo journalctl -u leaderboard -n 50"; exit 1; }
+
+# Attente active plutôt qu'un `sleep` fixe suivi d'un seul essai : un `sleep 3`
+# s'est révélé trop court par intermittence (observé sur le déploiement
+# automatique GitHub Actions, jamais en lançant ce script à la main) — sans
+# qu'on sache si la lenteur vient du redémarrage du service ou du chemin
+# réseau vers le runner. Ça absorbe les deux causes sans en supposer une.
+for i in $(seq 1 20); do
+  if curl --fail --silent --show-error -o /dev/null http://127.0.0.1:3000/login; then
+    echo "déployé — /login répond (après ${i}s)"
+    exit 0
+  fi
+  sleep 1
+done
+echo "le site ne répond toujours pas après 20 s : sudo journalctl -u leaderboard -n 50"
+exit 1
