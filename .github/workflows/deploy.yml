@@ -1,0 +1,31 @@
+name: Déploiement VPS
+
+# À chaque push sur main : SSH vers le VPS et lance deploy.sh en tant
+# qu'utilisateur `leaderboard`. La clé privée (secrets.VPS_SSH_KEY) est
+# restreinte côté serveur par une forced command dans son authorized_keys —
+# même volée, elle ne peut exécuter que deploy.sh, rien d'autre.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Déployer
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          echo "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Clé publique de l'hôte, épinglée en dur : elle ne change que si le
+          # VPS est réinstallé. Évite un StrictHostKeyChecking=no, vulnérable
+          # à un MITM sur la toute première connexion.
+          echo "$VPS_HOST ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAG2OiNw4GxIN7h2ebtb13piD5V8uZasrvbgA9v2PCgN" > ~/.ssh/known_hosts
+          # La commande passée ici est ignorée par le serveur (forced command
+          # côté authorized_keys) : elle ne sert qu'à documenter l'intention.
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes leaderboard@"$VPS_HOST" deploy.sh

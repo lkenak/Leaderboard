@@ -1,0 +1,8 @@
+# /etc/sudoers.d/leaderboard
+#
+# deploy.sh tourne en tant qu'utilisateur `leaderboard` (via SSH ou
+# `sudo -u leaderboard ...`) et a besoin de redémarrer son propre service en
+# fin de déploiement — sans mot de passe, sinon aucune automatisation
+# (GitHub Actions, cron) ne peut fonctionner. Portée réduite au strict
+# nécessaire : uniquement cette commande, uniquement ce service.
+leaderboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart leaderboard

@@ -65,10 +65,14 @@ tunnel sans rien changer.
 
 ---
 
-# Mise en ligne sur Oracle Cloud Always Free
+# Mise en ligne sur un serveur dédié
 
 Checklist pour une soirée. Les fichiers de ce dossier sont à copier tels quels,
-il n'y a rien à rédiger.
+il n'y a rien à rédiger. Écrite pour Oracle Cloud Always Free (§1-2 ci-dessous
+lui sont spécifiques), mais `bootstrap.sh` et `deploy.sh` sont génériques : sur
+un VPS classique (Contabo, Hetzner, OVH...) déjà en Ubuntu 24.04 x86_64, on
+saute directement à [« Préparer la machine »](#3-préparer-la-machine) — pas de
+double pare-feu à débloquer, l'architecture est toujours supportée.
 
 ---
 
@@ -191,6 +195,38 @@ restaurée n'est pas une sauvegarde.
 | Redémarrage après mise à jour du noyau | ~10 min/mois |
 | `npm run champions:sync` | 2–3 fois par an, et sans gravité si oublié |
 | Vérifier une restauration de sauvegarde | une fois par trimestre |
+
+## 8. Déploiement automatique (GitHub Actions)
+
+`bootstrap.sh` installe une règle sudo (`/etc/sudoers.d/leaderboard`) qui
+autorise l'utilisateur `leaderboard` à redémarrer son propre service sans mot
+de passe — sans elle, `deploy.sh` bloque en attendant un mot de passe dès
+qu'il est lancé par un script plutôt qu'à la main.
+
+Pour que `git push` déclenche un déploiement, il manque une clé SSH dédiée à
+la CI, restreinte côté serveur à **une seule commande** (même volée, elle ne
+sert à rien d'autre) :
+
+```bash
+# En local
+ssh-keygen -t ed25519 -C "github-actions-deploy" -f deploy_key -N ""
+
+# Sur le VPS, dans ~leaderboard/.ssh/authorized_keys (à créer, 700/600) :
+command="/srv/leaderboard/repo/deploy/deploy.sh",no-agent-forwarding,no-X11-forwarding,no-port-forwarding,no-pty ssh-ed25519 AAAA... github-actions-deploy
+```
+
+Puis, dans le dépôt GitHub → *Settings → Secrets and variables → Actions* :
+
+| Secret | Valeur |
+| --- | --- |
+| `VPS_HOST` | l'IP publique du VPS |
+| `VPS_SSH_KEY` | le contenu de `deploy_key` (la clé **privée**) |
+
+Le workflow [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)
+se connecte avec cette clé à chaque push sur `main` et lance `deploy.sh`. La
+clé publique de l'hôte y est épinglée en dur plutôt que
+`StrictHostKeyChecking=no`, pour ne pas accepter n'importe quel serveur à la
+première connexion.
 
 ## Dépannage
 

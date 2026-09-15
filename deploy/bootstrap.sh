@@ -144,6 +144,15 @@ else
   GENERATED=0
 fi
 
+# ── 6. Sudo non interactif pour le redémarrage ─────────────────────────────
+# deploy.sh se termine par `sudo systemctl restart leaderboard` : sans cette
+# règle, cette ligne bloque en attente d'un mot de passe dès que deploy.sh est
+# lancé par un script (CI, cron) plutôt qu'à la main devant un terminal.
+say "Sudo non interactif (redémarrage du service)"
+install -m 440 -o root -g root "$SRV/repo/deploy/leaderboard-sudoers" /etc/sudoers.d/leaderboard
+visudo -cf /etc/sudoers.d/leaderboard >/dev/null
+ok "règle installée et validée"
+
 printf '\n\033[1;32m═══ Préparation terminée ═══\033[0m\n\n'
 if [ "${GENERATED:-0}" = "1" ]; then
   printf 'Ton mot de passe /admin a été généré :\n\n    \033[1;33m%s\033[0m\n\n' "$ADMIN_PW"
