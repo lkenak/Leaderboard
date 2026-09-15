@@ -300,7 +300,10 @@ export async function sync(): Promise<SyncReport> {
 
       patches.push((s) => {
         const a = s.roster.find((x) => x.id === account.id);
-        if (a) a.error = undefined;
+        if (!a) return;
+        a.error = undefined;
+        // Le pic est entretenu ici, jamais recalculé : voir store.ts.
+        a.peakAbsoluteLp = Math.max(a.peakAbsoluteLp ?? 0, abs);
       });
 
       /* 4 — Les parties, seulement si le compteur a bougé. */

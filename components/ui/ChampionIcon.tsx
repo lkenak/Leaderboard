@@ -20,7 +20,8 @@ export function ChampionIcon({
       title={championName ?? championId}
       width={size}
       height={size}
-      quality={85}
+      // Pas de `quality` explicite : Next 16 exige de déclarer chaque valeur
+      // dans `images.qualities`, et à 24 px la qualité par défaut suffit.
       className={cn(
         "shrink-0 rounded-xs bg-panel-3 object-cover ring-1 ring-hair",
         className,

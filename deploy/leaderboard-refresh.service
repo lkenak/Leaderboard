@@ -1,0 +1,13 @@
+# /etc/systemd/system/leaderboard-refresh.service
+[Unit]
+Description=Appelle /api/refresh
+After=leaderboard.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/leaderboard.env
+# --fail pour que journalctl montre un échec, --max-time car un premier relevé
+# sur un plateau neuf peut durer une minute.
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 300 \
+  -X POST -H "Authorization: Bearer ${REFRESH_SECRET}" \
+  http://127.0.0.1:3000/api/refresh

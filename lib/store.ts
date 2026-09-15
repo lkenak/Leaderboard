@@ -55,6 +55,13 @@ export interface RosterAccount {
   puuid?: string;
   profileIconId?: number;
   summonerLevel?: number;
+  /**
+   * Meilleur LP absolu jamais relevé. Persisté ici, et non recalculé depuis
+   * les relevés : ceux-ci sont sous-échantillonnés avec le temps, donc un pic
+   * atteint il y a trois mois entre deux points conservés disparaîtrait, et le
+   * « pic de la saison » régresserait silencieusement.
+   */
+  peakAbsoluteLp?: number;
   /** Dernière erreur de résolution (Riot ID introuvable, région erronée…). */
   error?: string;
 }
@@ -202,16 +209,45 @@ export function patchAccount(
 
 /* ── Rétention ────────────────────────────────────────────────────────────── */
 
-/** Un relevé toutes les 5 min pendant 120 jours tiendrait 34 000 entrées par
- *  joueur ; on n'a besoin que de la forme de la courbe et des 24 h glissantes. */
-const MAX_SAMPLES = 900;
+/**
+ * Rétention des relevés.
+ *
+ * Un simple plafond ne suffisait pas : à raison d'un relevé toutes les
+ * 30 minutes au repos, 900 entrées ne couvrent que 19 jours — et à peine 3 pour
+ * quelqu'un qui joue sans arrêt. La courbe d'un split entier était donc
+ * impossible.
+ *
+ * On garde plutôt **toute la finesse sur 72 h** — c'est ce dont ont besoin la
+ * fenêtre de 24 h, les deltas de LP par partie et la variation de place — puis
+ * **un relevé par jour au-delà**, en conservant celui du plus haut LP de la
+ * journée pour que la courbe garde ses sommets. Le fichier reste petit (autour
+ * de 40 Ko par joueur), ce qui compte : il est relu à chaque rendu de page.
+ */
+const FINE_WINDOW_MS = 72 * 3600_000;
+/** Filet de sécurité : ~3 ans d'un relevé par jour plus la fenêtre fine. */
+const MAX_SAMPLES = 1200;
 const MAX_GAMES = 40;
 
-export function prune(store: StoreShape): void {
+function downsample(samples: LpSample[], now: number): LpSample[] {
+  const cutoff = now - FINE_WINDOW_MS;
+  const fine = samples.filter((s) => s.ts >= cutoff);
+
+  // Au-delà de la fenêtre fine : un relevé par jour, celui du LP le plus haut.
+  const perDay = new Map<string, LpSample>();
+  for (const sample of samples) {
+    if (sample.ts >= cutoff) continue;
+    const day = new Date(sample.ts).toISOString().slice(0, 10);
+    const best = perDay.get(day);
+    if (!best || sample.absoluteLp > best.absoluteLp) perDay.set(day, sample);
+  }
+
+  const kept = [...perDay.values(), ...fine].sort((a, b) => a.ts - b.ts);
+  return kept.length > MAX_SAMPLES ? kept.slice(-MAX_SAMPLES) : kept;
+}
+
+export function prune(store: StoreShape, now = Date.now()): void {
   for (const [puuid, samples] of Object.entries(store.samples)) {
-    if (samples.length > MAX_SAMPLES) {
-      store.samples[puuid] = samples.slice(-MAX_SAMPLES);
-    }
+    store.samples[puuid] = downsample(samples, now);
   }
   for (const [puuid, games] of Object.entries(store.games)) {
     if (games.length > MAX_GAMES) store.games[puuid] = games.slice(0, MAX_GAMES);

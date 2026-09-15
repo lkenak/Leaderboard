@@ -1,0 +1,24 @@
+# /etc/caddy/Caddyfile
+#
+# Caddy obtient et renouvelle le certificat tout seul : rien à automatiser, rien
+# à surveiller. Remplacer le domaine et recharger :
+#
+#   sudo caddy validate --config /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+
+ladder.exemple.fr {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+
+	# Next gère lui-même le cache de ses assets versionnés ; on ne fait que
+	# transmettre. Un `header` trop zélé ici casserait la revalidation.
+	log {
+		output file /var/log/caddy/ladder.log
+		format console
+	}
+}
+
+# Un autre projet sur la même machine : un bloc de plus, un port de plus.
+# autre-projet.exemple.fr {
+# 	reverse_proxy 127.0.0.1:3001
+# }
