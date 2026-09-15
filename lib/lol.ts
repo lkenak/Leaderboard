@@ -121,6 +121,20 @@ export function crestSrc(tier: Tier | "UNRANKED"): string {
   return `/lol/crests/${tier.toLowerCase()}.svg`;
 }
 
+/**
+ * Grand emblème de palier, en PNG. Plus aucun composant ne l'utilise : le
+ * filigrane des cartes du podium est passé au crest SVG, qui porte le même
+ * visuel sans pouvoir se déformer et pèse 4 Ko au lieu de 225.
+ *
+ * L'accesseur et les assets sont conservés le temps d'un arbitrage visuel — le
+ * PNG est plus détaillé que le vecteur, et le rendu du filigrane n'a pas pu
+ * être comparé à l'œil. Si l'on y revient, deux précautions, faute desquelles
+ * le défaut d'origine reparaît : ces images sont en 16:9 (1280×720, parfois
+ * 2560×1440) et leur emblème utile n'occupe que ~22 % du canevas. Il faut donc
+ * `object-contain` **et** une boîte au bon ratio — jamais `size-[…]` carré,
+ * qui les écrase en largeur. Sinon, supprimer cette fonction et
+ * `public/lol/emblems/` (1,1 Mo).
+ */
 export function emblemSrc(tier: Tier): string {
   return `/lol/emblems/${tier.toLowerCase()}.png`;
 }

@@ -1,6 +1,5 @@
-import Image from "next/image";
 import { cn } from "@/lib/cn";
-import { emblemSrc, rankLabel } from "@/lib/lol";
+import { rankLabel } from "@/lib/lol";
 import { kdaLabel, thousands } from "@/lib/format";
 import type { RankingEntry } from "@/lib/types";
 import { PositionBadge } from "@/components/ui/PositionBadge";
@@ -8,6 +7,7 @@ import { RoleIcon } from "@/components/ui/RoleIcon";
 import { ChampionIcon } from "@/components/ui/ChampionIcon";
 import { Delta } from "@/components/ui/Delta";
 import { Avatar } from "@/components/ui/Avatar";
+import { Crest } from "@/components/ui/Crest";
 
 /**
  * Podium — visible à partir de `md`. La hiérarchie entre les cartes n'est pas
@@ -55,13 +55,20 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
           )}
         >
           <span className="grain-layer" />
-          <Image
-            src={emblemSrc(entry.rank.tier)}
-            alt=""
-            width={300}
-            height={300}
-            aria-hidden
-            className="pointer-events-none absolute -top-9 -right-11 size-[230px] opacity-[0.19] select-none"
+          {/* Filigrane de palier. C'était le PNG `/lol/emblems/*.png` : une
+              image 16:9 (1280×720, parfois 2560×1440) posée dans une boîte
+              carrée sans `object-fit`, donc écrasée en largeur — et dont
+              l'emblème utile n'occupe que ~22 % du canevas, le reste étant du
+              vide. Résultat : un emblème à la fois serré et minuscule.
+
+              Le crest SVG porte le même visuel avec un viewBox serré, et un
+              SVG dans une image préserve son ratio par défaut
+              (`preserveAspectRatio`), donc il ne peut pas se déformer quelle
+              que soit la boîte. 4 Ko contre 225 Ko, et net à toute taille. */}
+          <Crest
+            tier={entry.rank.tier}
+            size={i === 0 ? 260 : 220}
+            className="pointer-events-none absolute -top-8 -right-10 opacity-[0.19]"
           />
 
           <div className="relative p-5">

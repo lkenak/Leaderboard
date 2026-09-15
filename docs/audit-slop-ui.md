@@ -47,6 +47,7 @@ et du dégradé multicolore. C'est la moitié du travail que le skill demande, e
 | 11 | Le leader affiché trois fois avant le classement | Corrigé |
 | 12 | Compteur « EN JEU » global posé sur une vue filtrée | Corrigé |
 | 13 | `fade-x` : utilitaire mort | Supprimé |
+| 14 | Filigrane de palier écrasé en largeur | Corrigé |
 
 Les constats 9 à 13 ont été trouvés pendant la correction, pas pendant
 l'audit. Les 12 et 13 ne sont apparus qu'en inspectant le HTML rendu — ils
@@ -209,6 +210,38 @@ dans l'en-tête du site, pas dans la page. Mais rien ne le disait. Il porte
 maintenant un `title` qui nomme son périmètre. Le rendre égal à la vue
 demanderait de faire descendre l'en-tête dans le composant client qui détient
 la sélection : disproportionné pour le gain.
+
+### 14. Filigrane de palier écrasé
+
+Signalé de visu, sur capture d'écran : l'emblème de fond des grandes cartes
+apparaissait « serré, l'inverse d'étiré ». Deux causes cumulées.
+
+1. **Déformation.** Les PNG `/lol/emblems/*.png` sont en **16:9** — 1280×720,
+   et 2560×1440 pour émeraude et platine. Ils étaient posés dans une boîte
+   carrée (`size-[230px]`) **sans `object-fit`**, donc avec le `fill` par
+   défaut : une image 16:9 forcée en carré est comprimée en largeur. C'était
+   le seul visuel du projet sans gestion de ratio — tous les autres (`Avatar`,
+   `ChampionIcon`, `Flag`, les crests des cellules) ont `object-cover` ou
+   `object-contain`, et `Flag` calcule même son 3:2 explicitement.
+2. **Gâchis.** Même ratio corrigé, l'emblème utile n'occupe que ~22 % de la
+   largeur du canevas, centré dans du vide. Il serait resté minuscule.
+
+Le filigrane passe donc au **crest SVG**, déjà présent dans le dépôt et déjà
+utilisé par `Crest` : même visuel, viewBox serré, et surtout un SVG dans une
+balise image préserve son ratio par défaut (`preserveAspectRatio` vaut
+`xMidYMid meet` ; aucun des onze fichiers n'en déclare un autre). Il ne *peut*
+donc pas se déformer, quelle que soit la boîte. Accessoirement : 1,4 à 2,3 Ko
+par palier contre 33 à 225 Ko.
+
+Limite : Chromium headless ne produit aucune capture dans cet environnement
+(même sur une page triviale), donc la correction est vérifiée sur le HTML
+servi et sur le comportement SVG, **pas à l'œil**. Pour les paliers dont le
+viewBox n'est pas carré (bronze, argent, or, fer : 17×12 à 18×13), le SVG est
+centré avec du vide vertical dans sa boîte carrée — sans déformation, mais le
+décalage fin du `-top-8 -right-10`, calibré pour le PNG, mérite un œil humain.
+
+`emblemSrc` et les PNG sont conservés le temps de cet arbitrage, avec dans
+`lib/lol.ts` la note des deux précautions à prendre si l'on y revient.
 
 ## Vérifications
 
