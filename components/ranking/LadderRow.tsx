@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { rankLabel } from "@/lib/lol";
-import { relativeTime, winratePct } from "@/lib/format";
+import { relativeTime, signed, winratePct } from "@/lib/format";
 import { lpAverages } from "@/lib/ranking";
 import type { RankingEntry } from "@/lib/types";
 import type { StatsProvider } from "@/lib/providers";
@@ -53,6 +53,43 @@ export function LadderRow({
 }) {
   const { player, rank } = entry;
   const averages = lpAverages(entry);
+
+  /* Résumé vocal de la ligne. Un lecteur d'écran qui balaye un classement veut
+     la ligne d'un coup — « 3e, Nom, Diamant II, 1240 LP, +18 LP sur 24 h » —
+     et non douze cellules à recoller. Le détail complet reste dans le panneau
+     dépliable, que `aria-expanded` annonce. */
+  const summary = [
+    `${entry.position}e`,
+    `${player.gameName} #${player.tagLine}`,
+    rankLabel(rank),
+    `${rank.leaguePoints} LP`,
+    entry.session.games > 0 && entry.session.lp !== null
+      ? `${signed(entry.session.lp)} LP sur 24 heures`
+      : "aucune partie depuis 24 heures",
+    `${entry.winrate}% de victoires sur ${entry.games} parties`,
+    entry.live ? `en partie sur ${entry.live.championName}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  /* Les deux rendus ci-dessous sont le même contenu à deux largeurs : celui
+     qui n'est pas affiché est en `display: none`, donc un seul est focusable à
+     la fois. Ils portent le même contrat d'accessibilité — `role="button"`,
+     `aria-expanded`, `aria-label` — parce que la vue en fiches ouvrait le même
+     panneau sans jamais annoncer qu'elle était dépliable. */
+  const rowA11y = {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-expanded": expanded,
+    "aria-label": summary,
+    onClick: onToggle,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onToggle();
+      }
+    },
+  };
 
   const identity = (liveBadge: boolean) => (
     <>
@@ -132,16 +169,7 @@ export function LadderRow({
     <>
       {/* ── Desktop : la grille à douze colonnes ── */}
       <div
-        role="row"
-        tabIndex={0}
-        aria-expanded={expanded}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
+        {...rowA11y}
         className={cn(
           "ladder-row hidden cursor-pointer border-b border-hair px-4 py-2.5 transition-colors duration-150 md:grid",
           last && !expanded && "border-b-0",
@@ -210,15 +238,7 @@ export function LadderRow({
 
       {/* ── Mobile : la même ligne devient une fiche ── */}
       <div
-        role="row"
-        tabIndex={0}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggle();
-          }
-        }}
+        {...rowA11y}
         className={cn(
           "flex cursor-pointer flex-col gap-3 border-b border-hair px-3.5 py-3.5 transition-colors duration-150 md:hidden",
           last && !expanded && "border-b-0",

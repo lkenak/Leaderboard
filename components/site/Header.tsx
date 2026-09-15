@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { LiveDot } from "@/components/ui/LiveDot";
 import { Logo } from "./Logo";
 
 const NAV = [
@@ -83,14 +84,28 @@ export function Header({ liveCount }: { liveCount: number }) {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-sm border border-hair bg-panel/60 px-2.5 py-1.5 sm:flex">
-            <span className="relative flex size-[6px]">
-              <span className="absolute inset-0 animate-pulse-dot rounded-full bg-screen" />
+          {/* La pastille n'apparaît que lorsqu'au moins un joueur est en
+              partie : c'est ce qui fait du point pulsé un témoin de direct et
+              non une décoration (DESIGN.md § 6). À zéro, il n'y a rien à
+              signaler, donc rien ne s'affiche. La couleur était `bg-screen`,
+              un token qui n'existe pas dans le thème : le point était
+              transparent. L'acide est le signal de la partie en cours. */}
+          {liveCount > 0 && (
+            <span
+              className="hidden items-center gap-2 rounded-sm border border-hair bg-panel/60 px-2.5 py-1.5 sm:flex"
+              /* Ce compteur est celui du plateau entier, high elo et low elo
+                 confondus — il vit dans l'en-tête du site, pas dans la page.
+                 Il peut donc annoncer 6 quand la sélection affichée n'en
+                 montre que 4, et rien ne le disait. Un chiffre qui ne
+                 correspond pas à ce qu'on voit doit nommer ce qu'il compte. */
+              title={`${liveCount} joueur${liveCount > 1 ? "s" : ""} du plateau ${liveCount > 1 ? "sont" : "est"} en partie, toutes sélections confondues`}
+            >
+              <LiveDot />
+              <span className="num text-micro font-medium tracking-[0.1em] text-ink-2">
+                {liveCount} EN JEU
+              </span>
             </span>
-            <span className="num text-micro font-medium tracking-[0.1em] text-ink-2">
-              {liveCount} EN JEU
-            </span>
-          </span>
+          )}
 
           <button
             type="button"

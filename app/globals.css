@@ -98,10 +98,12 @@
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
 
+  /* Cadran MOTION = 1 (voir DESIGN.md § 6) : survol, focus, et une révélation
+     unique à l'entrée. La seule boucle du projet est `pulse-dot`, réservée à
+     un joueur réellement en partie — un point qui ne marque pas un état en
+     cours ne pulse pas. */
   --animate-pulse-dot: pulse-dot 1.8s var(--ease-in-out-quart) infinite;
-  --animate-sweep: sweep 2.4s linear infinite;
   --animate-rise: rise 0.5s var(--ease-out-quint) both;
-  --animate-ticker: ticker 60s linear infinite;
   --animate-bar: bar 0.7s var(--ease-out-quint) both;
 }
 
@@ -117,16 +119,6 @@
   }
 }
 
-/* Balayage du filet supérieur du tableau : indique que la donnée est vivante. */
-@keyframes sweep {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
 @keyframes rise {
   from {
     opacity: 0;
@@ -135,15 +127,6 @@
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes ticker {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
   }
 }
 
@@ -295,7 +278,10 @@
   font-feature-settings: "zero" 1;
 }
 
-/* Le grain : donne une matière au noir sans introduire de halo. */
+/* Le grain : donne une matière au noir sans introduire de halo. C'est le seul
+   traitement de fond du projet — la trame de plan (quadrillage, nappe de
+   points) est proscrite par DESIGN.md § 8 : elle ne dit rien de ce produit, et
+   la nappe de points dépensait l'accent en décor. */
 @utility grain {
   position: relative;
 }
@@ -308,25 +294,6 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Trame de fond : un quadrillage de 1 px qui s'éteint vers le bas de page. */
-@utility gridlines {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 56px 56px;
-  background-position: center top;
-}
-
-/* Masque de fondu utilisé par le bandeau défilant et les listes scrollables. */
-@utility fade-x {
-  mask-image: linear-gradient(
-    to right,
-    transparent,
-    #000 6%,
-    #000 94%,
-    transparent
-  );
-}
 
 /* Champ de formulaire de /admin : la seule page à en aligner une douzaine. */
 @utility input {
@@ -455,16 +422,3 @@
   );
 }
 
-/* Trame de points qui ne saigne que du coin haut-droit, comme sur l'original. */
-@utility dotfield {
-  background-image: radial-gradient(
-    rgba(233, 255, 31, 0.35) 1px,
-    transparent 1px
-  );
-  background-size: 22px 22px;
-  mask-image: radial-gradient(
-    120% 100% at 100% 0%,
-    #000 0%,
-    transparent 62%
-  );
-}

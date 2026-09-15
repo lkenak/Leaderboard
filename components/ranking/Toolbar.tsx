@@ -7,7 +7,6 @@ import { cn } from "@/lib/cn";
 import { RoleIcon } from "@/components/ui/RoleIcon";
 import { Flag, countryName } from "@/components/ui/Flag";
 import { Popover, PopoverItem } from "@/components/ui/Popover";
-import { LiveDot } from "@/components/ui/LiveDot";
 import type { SortDir, SortKey } from "@/lib/ranking";
 
 /** Le tri par en-tête n'existe pas dans la vue en fiches : il lui faut sa
@@ -137,13 +136,24 @@ export function Toolbar({
           </svg>
         </div>
 
+        {/* Le point marque ici l'état du *filtre*, pas un direct : un disque
+            plein, pas un témoin pulsé (DESIGN.md § 6). Il s'éteint en gris
+            quand le filtre est inactif, et le bouton est désactivé quand
+            personne n'est en partie — donc le compte affiché est toujours
+            celui d'un filtre applicable. */}
         <FilterToggle
           active={state.inGameOnly}
           onClick={() => onChange({ inGameOnly: !state.inGameOnly })}
           title="N'afficher que les joueurs actuellement en partie"
           disabled={inGameCount === 0}
         >
-          <LiveDot tone={state.inGameOnly ? "acid" : "ink"} />
+          <span
+            aria-hidden
+            className={cn(
+              "size-[6px] shrink-0 rounded-full",
+              state.inGameOnly ? "bg-acid" : "bg-ink-4",
+            )}
+          />
           En partie
           <span className="num opacity-60">{inGameCount}</span>
         </FilterToggle>

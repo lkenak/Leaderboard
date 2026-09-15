@@ -1,8 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { cn } from "@/lib/cn";
-import { agoLabel } from "@/lib/format";
 import {
   countryCounts,
   defaultDir,
@@ -17,14 +15,12 @@ import { useClock } from "@/lib/clock";
 import { useStored } from "@/lib/use-stored";
 import type { RankingSnapshot } from "@/lib/types";
 import { Reveal } from "@/components/ui/Reveal";
-import { Ticker } from "@/components/site/Ticker";
 import { PageHeader } from "./PageHeader";
 import { Podium } from "./Podium";
 import { Toolbar, type ToolbarState } from "./Toolbar";
 import { LadderHead, type RecordMode } from "./LadderHead";
 import { LadderRow } from "./LadderRow";
 import { RowDetail } from "./RowDetail";
-import { CutoffWidget, Countdown } from "./Widgets";
 
 const BRACKET_COLOR: Record<string, string> = {
   "high-elo": "var(--color-acid)",
@@ -126,52 +122,23 @@ export function Ladder({
 
   return (
     <>
-      <Ticker entries={snapshot.entries} />
-
       {banner}
 
-      <PageHeader snapshot={snapshot} now={now} />
+      <PageHeader snapshot={snapshot} now={now} serverNow={serverNow} />
 
-      <section className="shell mt-14">
-        {/* — Chapeau de section : titre, relevé, coupe apex, compte à rebours — */}
+      {/* Le ruban défilant qui ouvrait la page est parti : il bouclait sans fin
+          (cadran MOTION = 1), était `aria-hidden`, et répétait des mouvements
+          du jour que la colonne « 24 h » et le bandeau de faits donnent déjà
+          triés et lisibles. Le chapeau de section qui suivait est parti aussi :
+          son titre « Classement » redisait l'intitulé du H1, et son « dernier
+          relevé » était le troisième affichage de la même minute. */}
+      <section className="shell mt-14" aria-label="Classement">
         <Reveal>
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-end gap-4">
-              <h2 className="text-[2.5rem] leading-[0.95] font-bold tracking-[-0.03em] text-ink md:text-[3.5rem]">
-                Classement
-              </h2>
-              <p className="mb-2 hidden text-[0.8125rem] text-ink-3 md:block">
-                <span className="font-medium text-acid">Dernier relevé&nbsp;:</span>{" "}
-                {agoLabel(snapshot.updatedAt, now)}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {snapshot.cutoff && (
-                <span className="hidden lg:block">
-                  <CutoffWidget
-                    challenger={snapshot.cutoff.challenger}
-                    grandmaster={snapshot.cutoff.grandmaster}
-                  />
-                </span>
-              )}
-              {snapshot.splitEndsAt !== null && (
-                <Countdown endsAt={snapshot.splitEndsAt} serverNow={serverNow} />
-              )}
-            </div>
-          </div>
-          <p className="mt-3 text-[0.8125rem] text-ink-3 md:hidden">
-            <span className="font-medium text-acid">Dernier relevé&nbsp;:</span>{" "}
-            {agoLabel(snapshot.updatedAt, now)}
-          </p>
+          <h2 className="sr-only">Trois premières places</h2>
+          <Podium entries={snapshot.entries} />
         </Reveal>
 
         <Reveal delay={60} y={22}>
-          <div className="mt-8">
-            <Podium entries={snapshot.entries} />
-          </div>
-        </Reveal>
-
-        <Reveal delay={100} y={26}>
           <div className="mt-12 scroll-mt-24" id="tableau">
             <Toolbar
               state={filters}
@@ -191,17 +158,22 @@ export function Ladder({
               onSort={onSort}
             />
 
-            <div
-              role="table"
-              aria-label="Classement SoloQ"
-              className="mt-5 rounded-md border border-hair bg-panel"
-            >
-              {/* Filet supérieur balayé : signale une donnée qui se rafraîchit,
-                  sans occuper la place d'un indicateur de chargement. */}
-              <div className="relative h-px overflow-hidden rounded-t-md bg-hair">
-                <span className="animate-sweep absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-acid/70 to-transparent" />
-              </div>
-
+            {/* Le filet supérieur portait un balayage acide en boucle infinie,
+                censé « signaler une donnée qui se rafraîchit » — mais il
+                tournait aussi quand rien ne se rafraîchissait, y compris en
+                mode démonstration où rien ne se rafraîchira jamais. Le libellé
+                « Relevé · il y a 3 min » de l'en-tête porte l'information, en
+                plus précis (DESIGN.md § 6). */}
+            {/* Le conteneur se déclarait `role="table"`, mais aucune cellule ne
+                portait `role="cell"` et le panneau de détail — deux onglets, un
+                tableau d'historique — ne peut pas tenir dans une cellule : la
+                table ARIA était annoncée sans jamais en être une. Ce qui est
+                réellement rendu ici est une liste de lignes dépliables, donc
+                c'est ce qu'on déclare — et le `role="list"` n'enveloppe que les
+                lignes, puisqu'une liste ne peut contenir que des `listitem`
+                (ni l'en-tête de tri, ni un état vide). Chaque ligne s'annonce
+                par un résumé complet plutôt que par douze cellules orphelines. */}
+            <div className="mt-5 rounded-md border border-hair bg-panel">
               <LadderHead
                 sortKey={sortKey}
                 sortDir={sortDir}
@@ -239,8 +211,12 @@ export function Ladder({
                   </button>
                 </div>
               ) : (
-                visible.map((entry, i) => (
-                  <div key={entry.player.puuid}>
+                <div
+                  role="list"
+                  aria-label={`Classement SoloQ, ${visible.length} joueur${visible.length > 1 ? "s" : ""}`}
+                >
+                  {visible.map((entry, i) => (
+                  <div role="listitem" key={entry.player.puuid}>
                     <LadderRow
                       entry={entry}
                       showBracketRail={filters.bracket === "all"}
@@ -262,11 +238,12 @@ export function Ladder({
                       <RowDetail entry={entry} now={now} />
                     )}
                   </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
 
-            <p className={cn("mt-4 text-[0.75rem] text-ink-4")}>
+            <p className="mt-4 text-[0.75rem] text-ink-4">
               Cliquez une ligne pour ouvrir l&apos;historique des parties. Les
               places et les variations sont recalculées à chaque relevé
               {demo

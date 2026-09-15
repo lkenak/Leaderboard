@@ -28,13 +28,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="fr" className="h-full antialiased">
       <body className="relative flex min-h-full flex-col">
-        {/* Fond : une trame de plan très faible, une nappe de points qui ne
-            saigne que du coin haut-droit, et un dégradé qui referme le bas de
-            page. Trois couches fixes, aucune ne réagit à la souris. */}
+        {/* Fond : une seule couche, le grain. Il donne sa matière au noir sans
+            rien prétendre signifier. Le quadrillage et la nappe de points qui
+            l'accompagnaient sont partis — une trame de plan est la façon par
+            défaut de rendre une page plate « technique », et la nappe dépensait
+            l'acide en décor alors qu'il ne signale que quatre choses
+            (DESIGN.md § 3 et § 8). */}
         <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-          <div className="gridlines absolute inset-0 opacity-70" />
-          <div className="dotfield absolute inset-x-0 top-0 h-[420px] opacity-40" />
-          <div className="absolute inset-x-0 bottom-0 h-[60vh] bg-gradient-to-b from-transparent to-void" />
+          <span className="grain-layer" />
         </div>
         {children}
       </body>

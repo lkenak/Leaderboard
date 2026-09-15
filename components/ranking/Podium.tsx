@@ -10,18 +10,36 @@ import { Delta } from "@/components/ui/Delta";
 import { Avatar } from "@/components/ui/Avatar";
 
 /**
- * Podium — visible à partir de `md`. La hiérarchie entre les trois cartes n'est
- * pas donnée par trois couleurs de médaille mais par la **largeur du filet
- * acide** en pied de carte : 100 %, 62 %, 38 %. Une seule teinte, trois
- * intensités de présence, lisible même en niveaux de gris.
+ * Podium — visible à partir de `md`. La hiérarchie entre les cartes n'est pas
+ * donnée par trois couleurs de médaille mais par deux moyens cumulés :
+ *
+ * - la **largeur du filet acide** en pied de carte — 100 %, 62 %, 38 % ;
+ * - la **place occupée** — à partir de `lg`, la 1re carte prend deux colonnes
+ *   sur quatre. Trois cartes de taille égale mettent les trois joueurs au même
+ *   rang visuel, ce qui est précisément ce qu'un podium doit démentir.
+ *
+ * Une seule teinte, deux dimensions de hiérarchie, lisible en niveaux de gris.
+ *
+ * Il affichait `null` en dessous de trois joueurs : un plateau de deux comptes
+ * n'avait donc pas de podium du tout, sans que rien ne l'explique. Il montre
+ * maintenant ce qu'il a — la grille s'adapte au nombre réel de cartes.
  */
 export function Podium({ entries }: { entries: RankingEntry[] }) {
   const top = entries.slice(0, 3);
-  if (top.length < 3) return null;
+  if (top.length === 0) return null;
   const RAIL = ["100%", "62%", "38%"];
 
+  /* Une seule carte n'a pas besoin de la moitié de la page : la grille ne
+     s'étire qu'à partir de deux, et l'asymétrie 2/1/1 ne vaut qu'à trois. */
+  const cols =
+    top.length === 3
+      ? "md:grid-cols-3 lg:grid-cols-4"
+      : top.length === 2
+        ? "md:grid-cols-2"
+        : "md:grid-cols-1 md:max-w-sm";
+
   return (
-    <div className="hidden gap-4 md:grid md:grid-cols-3">
+    <div className={cn("hidden gap-4 md:grid", cols)}>
       {top.map((entry, i) => (
         <article
           key={entry.player.puuid}
@@ -30,6 +48,10 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
             i === 0
               ? "border-acid/35 hover:border-acid/60"
               : "border-hair hover:border-hair-2",
+            // La 1re place prend deux colonnes sur les quatre disponibles à
+            // partir de `lg` : c'est la hiérarchie par la taille annoncée plus
+            // haut. En dessous, la grille est à trois colonnes égales.
+            top.length === 3 && i === 0 && "lg:col-span-2",
           )}
         >
           <span className="grain-layer" />

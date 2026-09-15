@@ -114,10 +114,10 @@ export function AddAccountForm() {
             />
           </Field>
           <Field label="Équipe" htmlFor="teamName">
-            <input id="teamName" name="teamName" placeholder="Voltaic" className="input" />
+            <input id="teamName" name="teamName" placeholder="Nom de l’équipe" className="input" />
           </Field>
           <Field label="Tag d'équipe" htmlFor="teamTag">
-            <input id="teamTag" name="teamTag" maxLength={4} placeholder="VLT" className="input" />
+            <input id="teamTag" name="teamTag" maxLength={4} placeholder="TAG" className="input" />
           </Field>
           <Field label="Poste forcé" htmlFor="role">
             <select id="role" name="role" defaultValue="" className="input">

@@ -64,8 +64,13 @@ export function LadderHead({
   );
 
   return (
+    /* Ce n'est pas une ligne de tableau — le classement est déclaré comme une
+       liste (voir Ladder.tsx) — mais un jeu de commandes de tri qui sert aussi
+       de repère visuel de colonnes. Donc un groupe nommé : les boutons restent
+       annoncés, la barre ne se fait plus passer pour une `row`. */
     <div
-      role="row"
+      role="group"
+      aria-label="Trier le classement"
       className="ladder-row sticky top-16 z-20 hidden border-b border-hair-2 bg-panel/95 px-4 py-3 md:grid supports-[backdrop-filter]:bg-panel/85 supports-[backdrop-filter]:backdrop-blur-sm"
     >
       <span className="flex justify-center">{head("position", "#")}</span>

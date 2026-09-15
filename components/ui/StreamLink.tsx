@@ -17,14 +17,19 @@ const LABEL: Record<StreamerHandle["platform"], string> = {
  * Lien de chaîne. Volontairement pas de violet Twitch ni de vert Kick : trois
  * couleurs de marque dans un tableau ruinent la hiérarchie. Le glyphe suffit à
  * identifier la plateforme, la couleur reste celle du texte secondaire.
+ *
+ * Pas d'état « en direct » : `StreamerHandle` ne porte pas cette donnée et
+ * aucune API de plateforme n'est branchée. Le composant avait une prop `live`
+ * qui teintait le lien en `text-screen`, un token absent du thème — donc un
+ * signal qu'aucun appelant ne passait et qui, passé, n'aurait rien coloré. Le
+ * jour où Twitch ou Kick sera interrogé, le direct se marque en brasier
+ * (DESIGN.md § 3) et la prop revient avec sa source.
  */
 export function StreamLink({
   streamer,
-  live = false,
   className,
 }: {
   streamer: StreamerHandle;
-  live?: boolean;
   className?: string;
 }) {
   return (
@@ -36,7 +41,6 @@ export function StreamLink({
       className={cn(
         // 28 px au doigt, 24 px à la souris.
         "inline-flex size-7 shrink-0 items-center justify-center rounded-xs text-ink-3 transition-colors duration-150 hover:bg-panel-3 hover:text-ink md:size-6",
-        live && "text-screen hover:text-screen",
         className,
       )}
       onClick={(e) => e.stopPropagation()}

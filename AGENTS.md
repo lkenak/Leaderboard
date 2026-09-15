@@ -10,12 +10,20 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Travail sur l'UI
 
-Avant toute modification d'un composant, d'une feuille de style ou d'une page,
-lire `.claude/skills/antislop-ui/SKILL.md` et passer sa checklist finale.
+Avant toute modification d'un composant, d'une feuille de style ou d'une page :
 
-La direction artistique du projet est écrite en tête de `app/globals.css` :
-trois signaux chromatiques, rayons serrés, ni glassmorphism ni halo ni dégradé
-multicolore. Elle prime sur toute habitude de mise en forme par défaut.
+1. lire `DESIGN.md` — c'est la référence de la direction artistique. Les trois
+   signaux chromatiques et leur rôle exclusif, les plafonds de dose, et les
+   trois cadrans déclarés (RHYTHM 2, **MOTION 1**, DENSITY 3). Un écart à un
+   cadran est un défaut, pas un goût ;
+2. lire `.claude/skills/antislop-ui/SKILL.md` et passer sa checklist finale.
 
-L'état des lieux face à cette grille, et les points ouverts, sont dans
-`docs/audit-slop-ui.md`.
+Les deux contraintes les plus faciles à enfreindre sans le voir :
+
+- **Aucune boucle d'animation** en dehors du témoin de direct (`LiveDot`), qui
+  exige un état réellement en cours.
+- **Aucune information affichée deux fois.** C'est un classement : ce qui est
+  répété fait scroller avant la première réponse.
+
+`docs/audit-slop-ui.md` garde la trace des défauts déjà corrigés et de ce qui
+reste ouvert — le relire évite de réintroduire un motif déjà retiré.

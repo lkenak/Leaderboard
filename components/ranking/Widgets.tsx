@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { cn } from "@/lib/cn";
 import { crestSrc } from "@/lib/lol";
 import { useClock } from "@/lib/clock";
 
@@ -12,12 +13,20 @@ import { useClock } from "@/lib/clock";
 export function CutoffWidget({
   challenger,
   grandmaster,
+  className,
 }: {
   challenger: number;
   grandmaster: number;
+  /** Permet de passer en pleine largeur quand le widget est empilé en colonne. */
+  className?: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-3.5 rounded-md border border-hair bg-panel/60 px-4 py-2.5 whitespace-nowrap transition-colors duration-300 hover:border-hair-2">
+    <div
+      className={cn(
+        "inline-flex items-center gap-3.5 rounded-md border border-hair bg-panel/60 px-4 py-2.5 whitespace-nowrap transition-colors duration-300 hover:border-hair-2",
+        className,
+      )}
+    >
       <span
         className="label cursor-help"
         title="LP demandés en ce moment par la dernière place de Challenger et de Grand Maître sur EUW"
@@ -67,9 +76,12 @@ function CutoffValue({
 export function Countdown({
   endsAt,
   serverNow,
+  className,
 }: {
   endsAt: number;
   serverNow: number;
+  /** Permet de passer en pleine largeur quand le widget est empilé en colonne. */
+  className?: string;
 }) {
   const now = useClock(1000, serverNow);
 
@@ -83,7 +95,12 @@ export function Countdown({
   ];
 
   return (
-    <div className="inline-flex items-center gap-3.5 rounded-md border border-hair bg-panel/60 px-4 py-2.5 whitespace-nowrap transition-colors duration-300 hover:border-hair-2">
+    <div
+      className={cn(
+        "inline-flex items-center gap-3.5 rounded-md border border-hair bg-panel/60 px-4 py-2.5 whitespace-nowrap transition-colors duration-300 hover:border-hair-2",
+        className,
+      )}
+    >
       <span className="label leading-[1.25]">
         Fin du
         <br />
