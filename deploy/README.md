@@ -1,3 +1,70 @@
+# Mettre le classement en ligne
+
+Ce dossier couvre **deux modes**, qui ne servent pas la même chose.
+
+| | À la demande | Permanent |
+|---|---|---|
+| Fichier | `serve.sh` | units systemd + `Caddyfile` |
+| Où | n'importe quelle machine, même un poste de travail | serveur dédié (Oracle Always Free, VPS, mini PC) |
+| Durée de vie | le temps d'une session, `Ctrl+C` et il ne reste rien | 24/7, survit aux redémarrages |
+| URL | `*.trycloudflare.com`, change à chaque lancement | ton domaine, en HTTPS |
+| Prérequis | `cloudflared` | domaine, ports 80/443, utilisateur de service |
+
+Le mode à la demande est décrit juste en dessous. Le mode permanent commence à
+[« Mise en ligne sur Oracle Cloud Always Free »](#mise-en-ligne-sur-oracle-cloud-always-free).
+
+---
+
+## À la demande — `./deploy/serve.sh`
+
+Pour suivre le classement à plusieurs le temps d'une soirée, sans serveur.
+
+```bash
+./deploy/install-cloudflared.sh   # une seule fois
+npm run serve                     # à chaque session
+```
+
+Le script build si les sources ont changé, sert la sortie `standalone` sur
+`127.0.0.1:3000`, ouvre un tunnel Cloudflare et affiche l'URL publique à
+partager. `Ctrl+C` arrête serveur, tunnel et relevés d'un coup.
+
+```bash
+npm run serve -- --local    # sans tunnel, accessible depuis ce poste seulement
+npm run serve -- --build    # force le rebuild
+PORT=3001 npm run serve     # si 3000 est déjà pris
+```
+
+### Ce que le script prend en charge à ta place
+
+- **`LADDER_DATA_DIR`.** `lib/store.ts` résout `LADDER_DATA_DIR ?? cwd()/.data`,
+  et le cwd de la sortie standalone est `.next/standalone`. Sans cette
+  variable, l'historique de LP serait écrit dans le dossier de build et effacé
+  au rebuild suivant. Le script la fixe sur `.data/` à la racine.
+- **Les copies `static` et `public`.** Le `server.js` minimal de la sortie
+  standalone ne les copie pas (documenté dans `output.md` de la doc Next).
+  Sans elles : site sans CSS ni icônes.
+- **Les secrets.** `.env.local` est injecté dans l'environnement du processus,
+  comme le fait `EnvironmentFile=` dans `leaderboard.service` — la sortie
+  standalone ne trouverait aucun fichier `.env` depuis son cwd. Le script
+  repasse aussi le fichier en `600` s'il ne l'est pas.
+- **Le port déjà occupé.** Un serveur d'une session précédente ferait passer le
+  health check, et on servirait un build périmé avec les anciens secrets sans
+  aucun message. Le script refuse de démarrer.
+
+### Derrière un proxy d'entreprise, le tunnel ne passera pas
+
+Mesuré derrière un proxy à inspection TLS : le `CONNECT` vers le port 443
+passe, celui vers le port 7844 — celui de l'edge Cloudflare — est refusé en
+**403**. Et `cloudflared` ignore `HTTPS_PROXY` pour son appel d'enregistrement :
+il tente une sortie directe et expire. Deux blocages indépendants, aucun
+réglage ne les lève — et c'est le rôle de ce contrôle de refuser.
+
+Le script détecte le proxy et bascule en local sans attendre. Depuis un réseau
+domestique, aucun des deux blocages ne s'applique : la même commande ouvre le
+tunnel sans rien changer.
+
+---
+
 # Mise en ligne sur Oracle Cloud Always Free
 
 Checklist pour une soirée. Les fichiers de ce dossier sont à copier tels quels,
