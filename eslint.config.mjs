@@ -28,6 +28,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Répertoire de travail de Claude Code : ce n'est pas du code du projet,
+    // et les worktrees qu'il contient faisaient remonter 5 600 faux positifs.
+    ".claude/**",
+    ".data/**",
   ]),
 ]);
 
