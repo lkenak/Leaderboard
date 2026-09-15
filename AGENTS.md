@@ -7,3 +7,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Travail sur l'UI
+
+Avant toute modification d'un composant, d'une feuille de style ou d'une page,
+lire `.claude/skills/antislop-ui/SKILL.md` et passer sa checklist finale.
+
+La direction artistique du projet est écrite en tête de `app/globals.css` :
+trois signaux chromatiques, rayons serrés, ni glassmorphism ni halo ni dégradé
+multicolore. Elle prime sur toute habitude de mise en forme par défaut.
+
+L'état des lieux face à cette grille, et les points ouverts, sont dans
+`docs/audit-slop-ui.md`.
