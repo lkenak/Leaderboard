@@ -84,10 +84,12 @@ if ! node -v 2>/dev/null | grep -q '^v22\.'; then
 fi
 ok "$(node -v) / npm $(npm -v)"
 
-say "git, rsync, sqlite3, Caddy, mises à jour automatiques"
+say "git, rsync, sqlite3, outils de compilation, Caddy, mises à jour automatiques"
 # sqlite3 : uniquement pour deploy/backup.sh (commande .backup, cohérente même
-# en mode WAL) — better-sqlite3 lui-même n'a besoin d'aucun paquet système.
-apt-get install -y -qq git rsync sqlite3 debian-keyring debian-archive-keyring apt-transport-https
+# en mode WAL). build-essential (make, g++) : better-sqlite3 n'embarque AUCUN
+# binaire prébuilt ni mécanisme de téléchargement — `npm ci` le compile
+# systématiquement depuis les sources via node-gyp, sur toute plateforme.
+apt-get install -y -qq git rsync sqlite3 build-essential debian-keyring debian-archive-keyring apt-transport-https
 if ! command -v caddy >/dev/null; then
   # Le dépôt officiel : celui d'Ubuntu est souvent très en retard.
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
