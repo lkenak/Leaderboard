@@ -1,17 +1,20 @@
 # SOLOQ/LADDER
 
-Suivi de classement League of Legends SoloQ pour un plateau de comptes choisi,
-branché sur l'API Riot. Reconstruction de la page de classement de
-[soloqchallenge.gg/ranking][ref], en français.
+Plateforme de classements League of Legends SoloQ : chacun se connecte avec
+Discord, crée son propre ladder (un groupe de comptes Riot — le sien et ceux
+de ses amis) et retrouve dans « mes ladders » tous ceux où apparaît un compte
+qu'il a déclaré comme sien, même créés par quelqu'un d'autre. Reconstruction
+de la mise en page de [soloqchallenge.gg/ranking][ref], en français.
 
 [ref]: https://soloqchallenge.gg/ranking
 
 ```bash
-npm run dev            # http://localhost:3000 → redirige vers /ranking
+npm run dev            # http://localhost:3000
 npm run build && npm start
 npm run lint
 npm run riot:check     # valide la clé Riot avant tout le reste
 npm run champions:sync # régénère la table des champions après un patch
+npm run migrate:legacy # migration one-shot d'un ancien store.json (voir plus bas)
 ```
 
 ## Démarrer avec de vraies données
@@ -21,33 +24,45 @@ npm run champions:sync # régénère la table des champions après un patch
    *Register Product* → **Personal**. La clé de développement obtenue en deux
    clics **expire toutes les 24 h** ; la personnelle, non — et elle s'obtient
    sans vérification, ce qui correspond exactement à un site privé.
-2. `cp .env.example .env.local` et y coller la clé.
-   `.env*` est ignoré par git : **la clé ne doit jamais être commitée**, ce
+2. Créer une application sur le [portail développeurs
+   Discord](https://discord.com/developers/applications), lui ajouter le
+   redirect URI `http://localhost:3000/api/auth/callback/discord` (OAuth2 →
+   Redirects), noter Client ID et Client Secret.
+3. `cp .env.example .env.local` et y coller la clé Riot, le Client ID/Secret
+   Discord, et un `AUTH_SECRET` généré (`node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`).
+   `.env*` est ignoré par git : **rien de tout ça ne doit être commité**, ce
    dépôt est public.
-3. `npm run riot:check` pour vérifier qu'elle répond.
-4. `npm run dev`, puis **`/admin`** : coller les Riot ID (`Pseudo#TAG`), choisir
-   la région et la sélection. Rang, icône, poste, historique et état « en
+4. `npm run riot:check` pour vérifier que la clé Riot répond.
+5. `npm run dev`, se connecter avec Discord, créer un ladder depuis
+   **`/ladders/new`**, puis coller les Riot ID (`Pseudo#TAG`) de ses réglages
+   (**`/l/<slug>/settings`**). Rang, icône, poste, historique et état « en
    partie » sont résolus automatiquement.
 
-Sans clé ou sans compte, le site affiche un plateau fictif et le dit dans un
-bandeau — il reste présentable, mais ne prétend rien.
+Sans compte créé, un ladder affiche un état vide plutôt qu'un plateau fictif.
+La vitrine `/l/demo` reste un jeu de démonstration fixe, pour visiter le site
+sans configuration.
 
 Détails du branchement, coût en appels, déclenchement des relevés et pièges
 d'API : **[`lib/riot/README.md`](lib/riot/README.md)**.
 
 ## Ce qui est là
 
-**`/admin`** : le plateau suivi. Un champ pour coller un Riot ID, la liste des
-comptes avec leur rang relevé, le nombre de relevés et de parties connues, la
-bascule entre sélections, le retrait, et l'état du branchement (clé, erreurs,
-date du dernier relevé). Protégée par `ADMIN_PASSWORD` ; sans mot de passe
-défini, la page n'est ouverte qu'en développement local.
+**`/login`** : connexion Discord (Auth.js). **`/ladders`** : les ladders
+qu'on possède, ceux où l'on apparaît (via les comptes Riot déclarés comme
+siens dans la même page — sans vérification de propriété), et **`/ladders/new`**
+pour en créer un.
 
-**`/ranking`** : en-tête avec le leader du jour, faits marquants des 24 h,
-coupe apex, compte à rebours de fin de split, podium, et un tableau de
-**douze colonnes** — place et variation, joueur (favori, avatar, drapeau, Riot
-ID, équipe, liens de chaîne), rôle, palier, bilan, variation 24 h, forme,
-±LP moyens, KDA, champions, courbe de LP, lien profil.
+**`/l/[slug]/settings`** : réglages d'un ladder, réservés à son propriétaire.
+Un champ pour coller un Riot ID, la liste des comptes avec leur rang relevé,
+le nombre de relevés et de parties connues, la bascule entre sélections, le
+retrait, et l'état du branchement (clé, erreurs, date du dernier relevé).
+
+**`/l/[slug]`** : public, comme l'ancien `/ranking`. En-tête avec le leader du
+jour, faits marquants des 24 h, coupe apex, compte à rebours de fin de split,
+podium, et un tableau de **douze colonnes** — place et variation, joueur
+(favori, avatar, drapeau, Riot ID, équipe, liens de chaîne), rôle, palier,
+bilan, variation 24 h, forme, ±LP moyens, KDA, champions, courbe de LP, lien
+profil.
 
 Interactions : trois sélections (Tous / High elo / Low elo, la vue fusionnée
 renumérotant tout le monde), recherche, filtres rôle / pays / en partie /
@@ -56,27 +71,35 @@ dépliage d'une ligne sur son historique de parties et ses agrégats, choix du
 site de statistiques (OP.GG, U.GG, DeepLoL, LeagueOfGraphs).
 
 Les préférences — favoris, mode de bilan, site de statistiques — sont
-mémorisées dans le navigateur.
+mémorisées dans le navigateur, par ladder.
 
 ## Structure
 
 ```
-app/ranking/page.tsx      point d'entrée : relevé réel ou démonstration
-app/admin/                page du plateau + Server Actions
+app/l/[slug]/page.tsx     classement public d'un ladder : relevé réel ou démonstration
+app/l/[slug]/settings/    réglages du ladder + Server Actions, réservé au propriétaire
+app/ladders/              « mes ladders » (possédés + découverts) et création
+app/login/                connexion Discord
+app/api/auth/             route handler Auth.js
 app/api/refresh/          déclenchement d'un relevé par cron
-instrumentation.ts        route fetch par le proxy d'entreprise, s'il y en a un
+proxy.ts                  garde les routes /ladders* derrière une session (Edge Runtime)
+instrumentation.ts        migrations DB au démarrage + proxy d'entreprise, s'il y en a un
 components/ranking/       en-tête, podium, barre d'outils, tableau, ligne dépliée
-components/admin/         formulaire d'ajout, relevé manuel, connexion
+components/settings/      formulaire d'ajout, relevé manuel
+components/ladders/       déclaration de « mes comptes Riot »
 components/site/          navigation, bandeau défilant, bandeau d'état, pied
 components/ui/            primitives (emblème, rôle, champion, forme, courbe…)
 lib/types.ts              modèle de données, calé sur les noms de l'API Riot
 lib/lol.ts                LP absolus, libellés de palier, chemins d'assets
 lib/ranking.ts            tri, filtres, renumérotation
-lib/store.ts              stockage local : plateau, relevés de LP, parties
+lib/auth.ts / auth.config.ts  Auth.js — session complète / config sans accès disque (Edge)
+lib/db/                   base SQLite : utilisateurs, ladders, appartenances, comptes Riot
+db/migrations/            schéma SQL versionné, appliqué automatiquement au démarrage
 lib/riot/                 client, synchronisation, projection vers les vues
 lib/champions.ts          généré depuis Data Dragon — ne pas éditer
-lib/mock.ts               jeu de démonstration déterministe (repli)
-data/roster.ts            plateau fictif du mode démonstration
+lib/mock.ts               jeu de démonstration déterministe (vitrine /l/demo)
+data/roster.ts            plateau fictif de la vitrine
+scripts/migrate-store-to-sqlite.mjs  migration one-shot depuis un ancien store.json
 public/lol/               emblèmes, icônes de rôle, 173 champions, drapeaux
 public/fonts/             General Sans + IBM Plex Mono, auto-hébergées
 ```
@@ -99,19 +122,21 @@ relevé.
 
 **Ce qui n'est pas connu s'affiche comme inconnu.** Un gain de LP qu'aucun
 relevé n'encadre montre `— LP`, pas `±0` ; une fenêtre de 24 h plus courte que
-24 h le dit en infobulle ; un compte sans partie classée est exclu du tableau et
-signalé dans `/admin` au lieu d'être rangé en Fer IV. Le jeu de démonstration
-suit la même règle : il est *cohérent* (l'historique de LP découle des deltas
-des parties, la variation de place est une vraie différence entre deux
-classements) plutôt que rempli au hasard.
+24 h le dit en infobulle ; un compte sans partie classée est exclu du tableau
+et signalé dans les réglages du ladder au lieu d'être rangé en Fer IV. Le jeu
+de démonstration suit la même règle : il est *cohérent* (l'historique de LP
+découle des deltas des parties, la variation de place est une vraie
+différence entre deux classements) plutôt que rempli au hasard.
 
 ## Vérifications faites
 
 - `npm run build` et `npx eslint .` sans erreur ni avertissement
-- parcours `/admin` vérifié au navigateur : mot de passe refusé puis accepté,
-  Riot ID mal formé refusé, ajout, doublon refusé, bascule de sélection,
-  retrait, relevé sans clé, relevé avec clé invalide
-- états dégradés vérifiés : sans clé, plateau vide, sélection vide, clé
+- connexion Discord, création de ladder, ajout de compte et découverte
+  croisée (« mes comptes ») vérifiées au navigateur
+- réglages d'un ladder : Riot ID mal formé refusé, ajout, doublon refusé,
+  bascule de sélection, retrait, relevé sans clé, relevé avec clé invalide,
+  accès refusé à qui n'est pas propriétaire
+- états dégradés vérifiés : sans clé, ladder vide, sélection vide, clé
   refusée — la page reste affichable et explique quoi faire
 - contraste : 612 éléments de texte mesurés à 1440 px, 416 à 390 px —
   **aucun échec AA**, minimum relevé 4.76:1
@@ -120,19 +145,21 @@ classements) plutôt que rempli au hasard.
 - `prefers-reduced-motion` : aucune animation résiduelle, aucun bloc laissé
   invisible
 - aucun débordement horizontal à 390 / 820 / 1200 / 1280 / 1440 / 1600 px
-- poids transféré de `/ranking` : ~445 Ko dont 134 Ko de polices et 158 Ko de JS
+- poids transféré d'un ladder : ~445 Ko dont 134 Ko de polices et 158 Ko de JS
 
 ## Variables d'environnement
 
 | Variable | Rôle |
 | --- | --- |
-| `RIOT_API_KEY` | clé personnelle Riot. Absente → mode démonstration. |
-| `ADMIN_PASSWORD` | ouvre `/admin`. Absente → page fermée en production. |
+| `RIOT_API_KEY` | clé personnelle Riot. Absente → aucun relevé, seule la vitrine `/l/demo` affiche des données. |
+| `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` | application Discord (OAuth2), pour la connexion. |
+| `AUTH_SECRET` | signature des sessions Auth.js. |
+| `AUTH_TRUST_HOST` | `true` dès qu'un reverse proxy (Caddy…) est devant le site. |
 | `REFRESH_SECRET` | protège `POST /api/refresh`. Absente → route fermée en production. |
 | `REFRESH_INTERVAL_MS` | âge au-delà duquel une visite déclenche un relevé (5 min par défaut). |
 | `SPLIT_NAME` | libellé affiché du split. |
 | `SPLIT_ENDS_AT` | date ISO de fin de split ; absente → pas de compte à rebours. |
-| `LADDER_DATA_DIR` | emplacement du stockage (`.data/` par défaut). |
+| `LADDER_DATA_DIR` | dossier contenant `ladder.sqlite` (`.data/` par défaut). |
 
 ## Données et marques
 
