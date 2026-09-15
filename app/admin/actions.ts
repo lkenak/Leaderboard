@@ -1,15 +1,27 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { isAdmin, signIn, signOut } from "@/lib/admin";
 import {
   DuplicateAccountError,
   addAccount,
   patchAccount,
+  read,
   removeAccount,
   type Bracket,
 } from "@/lib/store";
 import { runSync } from "@/lib/riot/refresh";
+import { checkKey } from "@/lib/riot/client";
+import {
+  InvalidKeyError,
+  clearRejection,
+  forgetKey,
+  hasKey,
+  maskKey,
+  normaliseKey,
+  saveKey,
+} from "@/lib/riot/key";
 import { REGIONS } from "@/lib/riot/routing";
 import { ROLES, type Region, type Role, type StreamerHandle } from "@/lib/types";
 
@@ -140,13 +152,17 @@ export async function syncNowAction(
 ): Promise<ActionResult> {
   const denied = await guard();
   if (denied) return denied;
-  if (!process.env.RIOT_API_KEY) {
+  if (!(await hasKey())) {
     return {
       ok: false,
-      message:
-        "RIOT_API_KEY absente : copier .env.example vers .env.local, y coller une clé personnelle, puis relancer le serveur.",
+      message: "Aucune clé Riot : la coller dans le champ ci-dessus.",
     };
   }
+  /* Un refus antérieur est effacé avant d'essayer : un 403 peut être passager,
+     et rester bloqué sur un classement figé sans pouvoir réessayer avec une
+     clé pourtant valide serait absurde. Si elle est bien morte, l'appel qui
+     suit la remarque de nouveau. */
+  await clearRejection();
   try {
     const report = await runSync();
     revalidatePath("/admin");
@@ -165,6 +181,75 @@ export async function syncNowAction(
       message: err instanceof Error ? err.message : String(err),
     };
   }
+}
+
+/* ── Clé Riot ─────────────────────────────────────────────────────────────── */
+
+/**
+ * Range une clé collée à l'écran, après l'avoir essayée pour de vrai.
+ *
+ * La vérification n'est pas un luxe : une clé fausse rangée sans un mot, c'est
+ * un classement qui cesse de bouger sans que rien ne l'explique. Un aller-
+ * retour d'une seconde supprime toute cette classe de confusion.
+ *
+ * La valeur de retour ne contient jamais la clé — une action serveur sérialise
+ * son résultat vers le navigateur.
+ */
+export async function saveRiotKeyAction(
+  _prev: ActionResult | null,
+  form: FormData,
+): Promise<ActionResult> {
+  const denied = await guard();
+  if (denied) return denied;
+
+  let key: string;
+  try {
+    key = normaliseKey(String(form.get("key") ?? ""));
+  } catch (err) {
+    if (err instanceof InvalidKeyError) return { ok: false, message: err.message };
+    throw err;
+  }
+
+  // Essayée sur la région d'un compte déjà suivi : c'est celle qui compte
+  // vraiment ici, plutôt qu'un défaut qui ne prouve rien du plateau réel.
+  const store = await read();
+  const check = await checkKey(key, store.roster[0]?.region ?? "EUW");
+  if (!check.ok) return { ok: false, message: check.reason };
+
+  await saveKey(key);
+  revalidatePath("/admin");
+  revalidatePath("/ranking");
+
+  if (store.roster.length === 0) {
+    return {
+      ok: true,
+      message: `Clé acceptée (${maskKey(key)}). Ajouter des comptes pour démarrer.`,
+    };
+  }
+
+  /* Relevé lancé après l'envoi de la réponse : la confirmation est immédiate
+     et le classement se remplit pendant qu'on le regarde, sans laisser le
+     formulaire tourner une minute. */
+  after(async () => {
+    try {
+      await runSync();
+    } catch (err) {
+      console.error("[riot] relevé après saisie de la clé :", err);
+    }
+  });
+
+  return {
+    ok: true,
+    message: `Clé acceptée (${maskKey(key)}). Relevé en cours en arrière-plan.`,
+  };
+}
+
+/** Oublie la clé saisie : on repasse à `RIOT_API_KEY` si elle existe. */
+export async function forgetRiotKeyAction(): Promise<void> {
+  if (!(await isAdmin())) return;
+  await forgetKey();
+  revalidatePath("/admin");
+  revalidatePath("/ranking");
 }
 
 export async function signInAction(

@@ -1,3 +1,4 @@
+import { markKeyRejected, riotKey } from "./key";
 import { clusterHost, platformHost } from "./routing";
 import type { Region } from "@/lib/types";
 
@@ -23,7 +24,7 @@ export class RiotError extends Error {
 export class MissingKeyError extends Error {
   constructor() {
     super(
-      "RIOT_API_KEY absente. Copier .env.example vers .env.local et y coller une clé personnelle.",
+      "Aucune clé Riot. La coller depuis /admin, ou la placer dans RIOT_API_KEY.",
     );
     this.name = "MissingKeyError";
   }
@@ -104,7 +105,7 @@ async function get<T>(
   url: string,
   { allow404 = false, retries = 3 }: GetOptions = {},
 ): Promise<T | null> {
-  const key = process.env.RIOT_API_KEY;
+  const key = await riotKey();
   if (!key) throw new MissingKeyError();
 
   for (let attempt = 0; ; attempt++) {
@@ -127,6 +128,10 @@ async function get<T>(
 
     const path = new URL(url).pathname;
     if (res.status === 401 || res.status === 403) {
+      // On note le refus : c'est ce qui arrête le relevé automatique et fait
+      // apparaître le bandeau « clé expirée » plutôt que de laisser le site
+      // cogner l'API toutes les cinq minutes avec une clé morte.
+      await markKeyRejected(key);
       throw new RiotError(
         res.status,
         path,
@@ -135,6 +140,57 @@ async function get<T>(
     }
     throw new RiotError(res.status, path);
   }
+}
+
+/* ── Vérification d'une clé ───────────────────────────────────────────────── */
+
+export type KeyCheck = { ok: true } | { ok: false; reason: string };
+
+/**
+ * Essaie une clé avant de la retenir.
+ *
+ * L'appel choisi ne prend aucun paramètre et ne dépend d'aucun compte : la
+ * liste Challenger existe toujours. Coller une clé et savoir tout de suite si
+ * elle est bonne vaut mieux que de le découvrir au relevé suivant, devant un
+ * classement resté vide.
+ *
+ * La clé est passée en argument, et non lue par `riotKey()`, parce qu'on la
+ * vérifie précisément *avant* de la ranger.
+ */
+export async function checkKey(
+  key: string,
+  region: Region = "EUW",
+): Promise<KeyCheck> {
+  await limiter.take();
+  totalCalls++;
+  let res: Response;
+  try {
+    res = await fetch(
+      `${platformHost(region)}/lol/league/v4/challengerleagues/by-queue/RANKED_SOLO_5x5`,
+      { headers: { "X-Riot-Token": key }, cache: "no-store" },
+    );
+  } catch (err) {
+    return {
+      ok: false,
+      reason: `API Riot injoignable : ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  if (res.ok) return { ok: true };
+  if (res.status === 401 || res.status === 403) {
+    return {
+      ok: false,
+      reason:
+        "Riot refuse cette clé (401/403) : expirée, mal copiée, ou régénérée depuis. En reprendre une sur le portail.",
+    };
+  }
+  if (res.status === 429) {
+    return {
+      ok: false,
+      reason: "Quota Riot dépassé pour l'instant. Réessayer dans deux minutes.",
+    };
+  }
+  return { ok: false, reason: `API Riot en erreur (HTTP ${res.status}).` };
 }
 
 /* ── Les six appels dont le classement a besoin ───────────────────────────── */

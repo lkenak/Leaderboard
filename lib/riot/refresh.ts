@@ -1,6 +1,7 @@
 import { sync, type SyncReport } from "./sync";
 import * as store from "@/lib/store";
 import { MissingKeyError } from "./client";
+import { hasKey, keyRejected } from "./key";
 
 /**
  * Déclenchement de la synchronisation, avec deux garde-fous.
@@ -16,10 +17,6 @@ let running: Promise<SyncReport> | null = null;
 
 export function isRunning(): boolean {
   return running !== null;
-}
-
-export function hasKey(): boolean {
-  return Boolean(process.env.RIOT_API_KEY);
 }
 
 /** Intervalle par défaut entre deux relevés, réglable par `REFRESH_INTERVAL_MS`. */
@@ -43,7 +40,11 @@ export function runSync(): Promise<SyncReport> {
  * classement légèrement daté en page d'erreur.
  */
 export async function syncIfStale(): Promise<void> {
-  if (!hasKey() || isRunning()) return;
+  if (isRunning()) return;
+  // Clé refusée : on s'arrête là. Continuer voudrait dire un 401 toutes les
+  // cinq minutes, et un quota consommé pour rien. C'est la saisie d'une
+  // nouvelle clé depuis /admin qui redémarre les relevés.
+  if (!(await hasKey()) || (await keyRejected())) return;
   try {
     const data = await store.read();
     if (data.roster.length === 0) return;

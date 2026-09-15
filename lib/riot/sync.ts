@@ -19,6 +19,7 @@ import {
   type LeagueEntryDto,
   type MatchDto,
 } from "./client";
+import { riotKey } from "./key";
 import { PLATFORM, platformHost } from "./routing";
 
 /**
@@ -154,7 +155,7 @@ async function refreshCutoff(
 ): Promise<store.ApexCutoff | null> {
   if (existing && Date.now() - existing.fetchedAt < CUTOFF_TTL_MS) return null;
 
-  const key = process.env.RIOT_API_KEY;
+  const key = await riotKey();
   if (!key) throw new MissingKeyError();
 
   /** La liste complète d'un palier apex ; on n'en garde que le LP minimum. */

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { hasKey, isRunning, runSync } from "@/lib/riot/refresh";
+import { isRunning, runSync } from "@/lib/riot/refresh";
+import { hasKey, keyRejected } from "@/lib/riot/key";
 
 /**
  * Déclenche un relevé. Deux usages :
@@ -31,11 +32,23 @@ async function handle(request: Request) {
       { status: 401 },
     );
   }
-  if (!hasKey()) {
+  if (!(await hasKey())) {
     return NextResponse.json(
       {
         error:
-          "RIOT_API_KEY absente. Copier .env.example vers .env.local et y coller une clé personnelle.",
+          "Aucune clé Riot. La coller depuis /admin, ou la placer dans RIOT_API_KEY.",
+      },
+      { status: 503 },
+    );
+  }
+  /* Clé déjà refusée : on renvoie l'information au cron au lieu de consommer
+     un 401 de plus toutes les cinq minutes. « Relever maintenant » depuis
+     /admin efface ce drapeau et permet de réessayer. */
+  if (await keyRejected()) {
+    return NextResponse.json(
+      {
+        error:
+          "Clé Riot refusée lors du dernier appel. En coller une valide depuis /admin.",
       },
       { status: 503 },
     );
