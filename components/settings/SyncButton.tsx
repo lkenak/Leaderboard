@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { cn } from "@/lib/cn";
-import { syncNowAction, type ActionResult } from "@/app/admin/actions";
+import type { ActionResult } from "@/app/l/[slug]/settings/actions";
 
 /**
  * Relève tout le plateau à la demande. L'appel peut durer une minute sur un
@@ -10,9 +10,13 @@ import { syncNowAction, type ActionResult } from "@/app/admin/actions";
  * historique téléchargé), d'où l'état d'attente explicite plutôt qu'un bouton
  * qui semble ne rien faire.
  */
-export function SyncButton() {
+export function SyncButton({
+  action: boundAction,
+}: {
+  action: (prev: ActionResult | null, form?: FormData) => Promise<ActionResult>;
+}) {
   const [result, action, pending] = useActionState<ActionResult | null, FormData>(
-    syncNowAction,
+    boundAction,
     null,
   );
 

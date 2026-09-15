@@ -106,7 +106,7 @@ no_proxy="$NO_PROXY"
 export NO_PROXY no_proxy
 
 # ------------------------------------------------------------------ build ----
-SOURCES=(app components lib data public scripts instrumentation.ts next.config.ts package.json postcss.config.mjs tsconfig.json)
+SOURCES=(app components lib data db public scripts instrumentation.ts next.config.ts package.json postcss.config.mjs tsconfig.json)
 
 needs_build=1
 if [ "$FORCE_BUILD" -eq 0 ] && [ -f "$STAMP" ] && [ -f "$STANDALONE/server.js" ]; then
@@ -119,10 +119,12 @@ if [ "$needs_build" -eq 1 ]; then
 	step "build (les sources ont changé)…"
 	npm run build
 	# Documenté dans node_modules/next/dist/docs — output.md : le server.js
-	# minimal de la sortie standalone ne copie NI public/ NI .next/static.
-	# Sans ces deux copies : site sans CSS, sans police, sans icônes.
+	# minimal de la sortie standalone ne copie NI public/ NI .next/static NI
+	# db/ (les migrations SQL, lues depuis le disque au démarrage, pas
+	# importées en JS — donc jamais tracées par le bundling standalone).
 	cp -r "$ROOT/.next/static" "$STANDALONE/.next/"
 	[ -d "$ROOT/public" ] && cp -r "$ROOT/public" "$STANDALONE/"
+	cp -r "$ROOT/db" "$STANDALONE/"
 	touch "$STAMP"
 else
 	step "build à jour ${DIM}(--build pour forcer)${R}"

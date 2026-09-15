@@ -1,5 +1,5 @@
 import { sync, type SyncReport } from "./sync";
-import * as store from "@/lib/store";
+import { getSyncMeta, listPlayersToSync, listUnresolvedIdentities, setSyncMeta } from "@/lib/db/riot-players";
 import { MissingKeyError } from "./client";
 
 /**
@@ -45,9 +45,11 @@ export function runSync(): Promise<SyncReport> {
 export async function syncIfStale(): Promise<void> {
   if (!hasKey() || isRunning()) return;
   try {
-    const data = await store.read();
-    if (data.roster.length === 0) return;
-    if (data.lastSync && Date.now() - data.lastSync < refreshIntervalMs()) return;
+    const nothingToTrack =
+      listPlayersToSync().length === 0 && listUnresolvedIdentities().length === 0;
+    if (nothingToTrack) return;
+    const { lastSync } = getSyncMeta();
+    if (lastSync && Date.now() - lastSync < refreshIntervalMs()) return;
     const report = await runSync();
     console.log(
       `[riot] relevé : ${report.calls} appels, ${report.newSamples} relevé(s), ${report.newGames} partie(s), ${report.inGame} en jeu, ${report.errors.length} erreur(s) en ${Math.round(report.durationMs / 1000)} s`,
@@ -55,10 +57,11 @@ export async function syncIfStale(): Promise<void> {
   } catch (err) {
     if (err instanceof MissingKeyError) return;
     console.error("[riot] synchronisation échouée :", err);
-    await store
-      .update((s) => {
-        s.lastSyncError = err instanceof Error ? err.message : String(err);
-      })
-      .catch(() => undefined);
+    try {
+      const { lastSync } = getSyncMeta();
+      setSyncMeta(lastSync ?? Date.now(), err instanceof Error ? err.message : String(err));
+    } catch {
+      // best-effort
+    }
   }
 }

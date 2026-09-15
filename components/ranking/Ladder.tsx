@@ -42,6 +42,7 @@ export function Ladder({
   serverNow,
   banner,
   demo = false,
+  ladderSlug,
 }: {
   snapshots: Record<string, RankingSnapshot>;
   serverNow: number;
@@ -49,6 +50,9 @@ export function Ladder({
   banner?: React.ReactNode;
   /** `true` quand les chiffres viennent du jeu de démonstration. */
   demo?: boolean;
+  /** Namespace les préférences localStorage : sans lui, les favoris d'un
+   *  ladder fuiteraient dans un autre. */
+  ladderSlug: string;
 }) {
   /* — Horloge de page, au pas de la minute : elle ne sert qu'aux libellés
        « il y a … ». Les chronomètres de partie s'abonnent séparément à la
@@ -68,14 +72,17 @@ export function Ladder({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const [recordMode, setRecordMode] = useStored<RecordMode>(
-    "ladder:record-mode",
+    `ladder:${ladderSlug}:record-mode`,
     "record",
   );
   const [providerKey, setProviderKey] = useStored<string>(
-    "ladder:provider",
+    `ladder:${ladderSlug}:provider`,
     "opgg",
   );
-  const [favourites, setFavourites] = useStored<string[]>("ladder:favourites", []);
+  const [favourites, setFavourites] = useStored<string[]>(
+    `ladder:${ladderSlug}:favourites`,
+    [],
+  );
   const provider = findProvider(providerKey);
 
   /* — La vue « Tous » fusionne les deux tableaux et renumérote. — */

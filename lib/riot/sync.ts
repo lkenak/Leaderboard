@@ -4,8 +4,8 @@ import {
   championLabel,
 } from "@/lib/champions";
 import { absoluteLp } from "@/lib/lol";
-import * as store from "@/lib/store";
-import type { GameRecord, LiveGame, Role, Tier } from "@/lib/types";
+import * as players from "@/lib/db/riot-players";
+import type { GameRecord, LiveGame, Region, Role, Tier } from "@/lib/types";
 import { DIVISIONS, ROLES, TIERS } from "@/lib/types";
 import {
   MissingKeyError,
@@ -22,7 +22,10 @@ import {
 import { PLATFORM, platformHost } from "./routing";
 
 /**
- * Synchronisation du plateau avec l'API Riot.
+ * Synchronisation de tous les comptes Riot référencés par au moins un ladder
+ * ou une déclaration « mes comptes », quel que soit leur nombre de ladders —
+ * une seule clé API, un seul quota, donc un compte partagé entre deux ladders
+ * n'est résolu et suivi qu'une seule fois (voir `lib/db/riot-players.ts`).
  *
  * Toute la parcimonie du job est là : sur un cycle courant, seuls deux appels
  * par joueur sont systématiques (le rang et l'état « en partie »). L'historique
@@ -111,15 +114,15 @@ function soloEntry(entries: LeagueEntryDto[] | null): LeagueEntryDto | null {
  * n'a progressé que de 1). Sinon deux parties jouées entre deux relevés se
  * verraient attribuer le même total, ce qui est faux pour les deux.
  */
-function fillLpDeltas(samples: store.LpSample[], games: GameRecord[]): number {
+function fillLpDeltas(puuid: string, samples: players.LpSample[], games: GameRecord[]): number {
   if (samples.length < 2) return 0;
   let filled = 0;
 
   for (const game of games) {
     if (game.lpDelta !== null) continue;
 
-    let before: store.LpSample | null = null;
-    let after: store.LpSample | null = null;
+    let before: players.LpSample | null = null;
+    let after: players.LpSample | null = null;
     for (const sample of samples) {
       if (sample.ts <= game.endedAt) before = sample;
       else {
@@ -132,7 +135,8 @@ function fillLpDeltas(samples: store.LpSample[], games: GameRecord[]): number {
     const played = after.wins + after.losses - (before.wins + before.losses);
     if (played !== 1) continue;
 
-    game.lpDelta = after.absoluteLp - before.absoluteLp;
+    const delta = after.absoluteLp - before.absoluteLp;
+    players.setGameLpDelta(puuid, game.id, delta);
     filled++;
   }
   return filled;
@@ -149,9 +153,9 @@ function dominantRole(games: GameRecord[]): Role | undefined {
 /* ── Coupes apex ──────────────────────────────────────────────────────────── */
 
 async function refreshCutoff(
-  region: store.RosterAccount["region"],
-  existing: store.ApexCutoff | undefined,
-): Promise<store.ApexCutoff | null> {
+  region: Region,
+  existing: players.ApexCutoff | null,
+): Promise<players.ApexCutoff | null> {
   if (existing && Date.now() - existing.fetchedAt < CUTOFF_TTL_MS) return null;
 
   const key = process.env.RIOT_API_KEY;
@@ -195,59 +199,50 @@ export async function sync(): Promise<SyncReport> {
     errors: [],
   };
 
-  const snapshot = await store.read();
-  report.accounts = snapshot.roster.length;
+  // Un compte retiré de son dernier ladder (ou « mes comptes ») ne doit plus
+  // être interrogé — mieux vaut le savoir avant de consommer du quota pour lui.
+  players.pruneOrphanPlayers();
 
-  // On travaille sur une copie hors verrou : les appels réseau prennent des
-  // secondes, garder le fichier verrouillé pendant ce temps bloquerait l'ajout
-  // d'un compte depuis /admin.
-  const patches: Array<(s: store.StoreShape) => void> = [];
+  const unresolved = players.listUnresolvedIdentities();
+  report.accounts = unresolved.length;
 
-  for (const account of snapshot.roster) {
-    const label = `${account.gameName}#${account.tagLine}`;
+  /* 1 — Riot ID → puuid, une seule fois par identité déclarée. Deux
+     déclarations différentes du même compte convergent vers le même
+     `riot_players` dès que l'une des deux résout. */
+  for (const identity of unresolved) {
+    const label = `${identity.gameName}#${identity.tagLine}`;
     try {
-      /* 1 — Riot ID → puuid, une seule fois dans la vie du compte. */
-      let puuid = account.puuid;
-      if (!puuid) {
-        const dto = await accountByRiotId(
-          account.region,
-          account.gameName,
-          account.tagLine,
-        );
-        if (!dto) {
-          const message = `Riot ID introuvable sur ${account.region}. Vérifier l'orthographe, le tag et la région.`;
-          patches.push((s) => {
-            const a = s.roster.find((x) => x.id === account.id);
-            if (a) a.error = message;
-          });
-          report.errors.push({ account: label, message });
-          continue;
-        }
-        puuid = dto.puuid;
-        report.resolved++;
-        // Riot renvoie l'orthographe exacte : on s'aligne dessus.
-        patches.push((s) => {
-          const a = s.roster.find((x) => x.id === account.id);
-          if (a) {
-            a.puuid = dto.puuid;
-            a.gameName = dto.gameName;
-            a.tagLine = dto.tagLine;
-            a.error = undefined;
-          }
-        });
+      const dto = await accountByRiotId(identity.region, identity.gameName, identity.tagLine);
+      if (!dto) {
+        const message = `Riot ID introuvable sur ${identity.region}. Vérifier l'orthographe, le tag et la région.`;
+        players.markResolveError(identity, message);
+        report.errors.push({ account: label, message });
+        continue;
       }
-      const id = puuid;
+      players.resolveIdentity(identity, dto);
+      report.resolved++;
+    } catch (err) {
+      if (err instanceof MissingKeyError) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      players.markResolveError(identity, message);
+      report.errors.push({ account: label, message });
+    }
+  }
 
+  const roster = players.listPlayersToSync();
+  report.accounts += roster.length;
+
+  for (const account of roster) {
+    const label = `${account.gameName}#${account.tagLine}`;
+    const id = account.puuid;
+    try {
       /* 2 — Icône et niveau : une fois, ça ne bouge quasiment jamais. */
-      if (account.profileIconId === undefined) {
+      if (account.profileIconId === null) {
         const summoner = await summonerByPuuid(account.region, id);
         if (summoner) {
-          patches.push((s) => {
-            const a = s.roster.find((x) => x.id === account.id);
-            if (a) {
-              a.profileIconId = summoner.profileIconId;
-              a.summonerLevel = summoner.summonerLevel;
-            }
+          players.patchPlayer(id, {
+            profileIconId: summoner.profileIconId,
+            summonerLevel: summoner.summonerLevel,
           });
         }
       }
@@ -256,15 +251,11 @@ export async function sync(): Promise<SyncReport> {
       const entry = soloEntry(await leagueEntriesByPuuid(account.region, id));
       if (!entry || !isTier(entry.tier)) {
         report.unranked.push(label);
-        patches.push((s) => {
-          const a = s.roster.find((x) => x.id === account.id);
-          if (a) a.error = "Aucune partie classée en SoloQ sur ce split.";
-        });
+        players.patchPlayer(id, { lastError: "Aucune partie classée en SoloQ sur ce split." });
         continue;
       }
 
-      const division =
-        DIVISIONS.find((d) => d === entry.rank) ?? null;
+      const division = DIVISIONS.find((d) => d === entry.rank) ?? null;
       const rank = {
         tier: entry.tier,
         division,
@@ -273,7 +264,8 @@ export async function sync(): Promise<SyncReport> {
         losses: entry.losses,
       };
       const abs = absoluteLp(rank);
-      const previous = snapshot.samples[id]?.at(-1);
+      const samples = players.listSamples(id);
+      const previous = samples.at(-1) ?? null;
       const moved =
         !previous ||
         previous.absoluteLp !== abs ||
@@ -282,7 +274,7 @@ export async function sync(): Promise<SyncReport> {
       const stale = !previous || Date.now() - previous.ts > HEARTBEAT_MS;
 
       if (moved || stale) {
-        const sample: store.LpSample = {
+        players.addSample(id, {
           ts: Date.now(),
           tier: entry.tier,
           division,
@@ -290,25 +282,20 @@ export async function sync(): Promise<SyncReport> {
           absoluteLp: abs,
           wins: entry.wins,
           losses: entry.losses,
-        };
-        patches.push((s) => {
-          (s.samples[id] ??= []).push(sample);
         });
         report.newSamples++;
       }
 
-      patches.push((s) => {
-        const a = s.roster.find((x) => x.id === account.id);
-        if (!a) return;
-        a.error = undefined;
-        // Le pic est entretenu ici, jamais recalculé : voir store.ts.
-        a.peakAbsoluteLp = Math.max(a.peakAbsoluteLp ?? 0, abs);
+      // Le pic est entretenu ici, jamais recalculé : voir lib/db/riot-players.ts.
+      players.patchPlayer(id, {
+        lastError: null,
+        peakAbsoluteLp: Math.max(account.peakAbsoluteLp ?? 0, abs),
       });
 
       /* 4 — Les parties, seulement si le compteur a bougé. */
       const playedSince =
         !previous || previous.wins + previous.losses !== entry.wins + entry.losses;
-      const known = snapshot.games[id] ?? [];
+      const known = players.listGames(id);
       if (playedSince || known.length === 0) {
         const ids = (await rankedMatchIds(account.region, id, MATCH_PAGE)) ?? [];
         const knownIds = new Set(known.map((g) => g.id));
@@ -322,13 +309,7 @@ export async function sync(): Promise<SyncReport> {
         }
         if (fresh.length > 0) {
           report.newGames += fresh.length;
-          patches.push((s) => {
-            const merged = [...fresh, ...(s.games[id] ?? [])];
-            const seen = new Set<string>();
-            s.games[id] = merged
-              .filter((g) => (seen.has(g.id) ? false : (seen.add(g.id), true)))
-              .sort((a, b) => b.endedAt - a.endedAt);
-          });
+          players.upsertGames(id, fresh);
         }
       }
 
@@ -342,51 +323,43 @@ export async function sync(): Promise<SyncReport> {
         liveGame = {
           championId: key ?? "",
           championName: key ? championLabel(key) : "champion inconnu",
-          role: account.roleOverride ?? dominantRole(known) ?? "MIDDLE",
+          role: dominantRole(known) ?? "MIDDLE",
           startedAt: live.gameStartTime,
         };
       }
       if (liveGame) report.inGame++;
-      patches.push((s) => {
-        s.live[id] = liveGame;
-      });
+      players.setLive(id, liveGame);
+
+      /* 6 — Deltas et rétention, sur l'état à jour de ce compte. */
+      const allSamples = players.listSamples(id);
+      const allGames = players.listGames(id);
+      fillLpDeltas(id, allSamples, allGames);
+      players.pruneSamples(id);
+      players.pruneGames(id);
     } catch (err) {
       if (err instanceof MissingKeyError) throw err;
       const message = err instanceof Error ? err.message : String(err);
       report.errors.push({ account: label, message });
-      patches.push((s) => {
-        const a = s.roster.find((x) => x.id === account.id);
-        if (a) a.error = message;
-      });
+      players.patchPlayer(id, { lastError: message });
     }
   }
 
-  /* 6 — Coupes apex, une fois par plateforme représentée dans le plateau. */
-  const platforms = new Map<string, store.RosterAccount["region"]>();
-  for (const a of snapshot.roster) platforms.set(PLATFORM[a.region], a.region);
+  /* 7 — Coupes apex, une fois par plateforme représentée. */
+  const platforms = new Map<string, Region>();
+  for (const a of roster) platforms.set(PLATFORM[a.region], a.region);
   for (const [platform, region] of platforms) {
     try {
-      const cutoff = await refreshCutoff(region, snapshot.cutoffs[platform]);
-      if (cutoff) patches.push((s) => void (s.cutoffs[platform] = cutoff));
+      const cutoff = await refreshCutoff(region, players.getCutoff(platform));
+      if (cutoff) players.setCutoff(platform, cutoff);
     } catch {
       // Une coupe indisponible masque le widget, elle n'invalide pas la synchro.
     }
   }
 
-  await store.update((s) => {
-    for (const patch of patches) patch(s);
-    // Les deltas se remplissent à mesure que les relevés s'accumulent : on
-    // repasse sur tout l'historique à chaque synchronisation.
-    for (const [puuid, games] of Object.entries(s.games)) {
-      fillLpDeltas(s.samples[puuid] ?? [], games);
-    }
-    store.prune(s);
-    s.lastSync = Date.now();
-    s.lastSyncError =
-      report.errors.length > 0
-        ? `${report.errors.length} compte(s) en erreur`
-        : null;
-  });
+  players.setSyncMeta(
+    Date.now(),
+    report.errors.length > 0 ? `${report.errors.length} compte(s) en erreur` : null,
+  );
 
   report.calls = callsTotal() - callsBefore;
   report.durationMs = Date.now() - startedAt;

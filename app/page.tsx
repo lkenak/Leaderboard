@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 
-export default function Home() {
-  redirect("/ranking");
+export default async function Home() {
+  const session = await auth();
+  redirect(session?.user ? "/ladders" : "/l/demo");
 }

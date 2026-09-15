@@ -105,4 +105,4 @@ const ids = await call(
 );
 if (ids) console.log(`  ${ids.length} identifiant(s) de partie classée récupéré(s)`);
 
-console.log("\nTout est en ordre : ce compte peut être ajouté depuis /admin.");
+console.log("\nTout est en ordre : ce compte peut être ajouté dans les réglages d'un ladder.");

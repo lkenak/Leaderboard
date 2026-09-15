@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { roleLabel } from "@/lib/lol";
 import { ROLES } from "@/lib/types";
 import { REGIONS } from "@/lib/riot/routing";
-import { addAccountAction, type ActionResult } from "@/app/admin/actions";
+import type { ActionResult } from "@/app/l/[slug]/settings/actions";
 
 /**
  * Le formulaire d'ajout.
@@ -16,9 +16,14 @@ import { addAccountAction, type ActionResult } from "@/app/admin/actions";
  * champs ». Le poste principal, notamment, est déduit des parties : le forcer
  * n'a d'intérêt que pour un joueur qui change de rôle en cours de split.
  */
-export function AddAccountForm() {
+export function AddAccountForm({
+  action: boundAction,
+}: {
+  /** `addAccountAction` pré-lié au slug du ladder par la page appelante. */
+  action: (prev: ActionResult | null, form: FormData) => Promise<ActionResult>;
+}) {
   const [result, action, pending] = useActionState<ActionResult | null, FormData>(
-    addAccountAction,
+    boundAction,
     null,
   );
   const [open, setOpen] = useState(false);

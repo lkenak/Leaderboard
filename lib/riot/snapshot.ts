@@ -1,7 +1,16 @@
 import { absoluteLp } from "@/lib/lol";
 import { reposition } from "@/lib/ranking";
 import { winratePct, kda as kdaOf } from "@/lib/format";
-import * as store from "@/lib/store";
+import { listMembers, type LadderMemberRecord } from "@/lib/db/ladders";
+import {
+  getCutoff,
+  getLive,
+  getPlayer,
+  getSyncMeta,
+  listGames,
+  listSamples,
+  type LpSample,
+} from "@/lib/db/riot-players";
 import type {
   ChampionStat,
   GameRecord,
@@ -13,7 +22,8 @@ import type {
 import { PLATFORM } from "./routing";
 
 /**
- * Projette le contenu du stockage sur le modèle que consomment les vues.
+ * Projette le contenu de la base sur le modèle que consomment les vues, pour
+ * UN ladder donné.
  *
  * Aucun appel réseau ici : la synchronisation écrit, cette fonction lit. C'est
  * ce qui permet à la page de répondre en quelques millisecondes et de rester
@@ -34,7 +44,7 @@ export interface SnapshotMeta {
   lastSyncError: string | null;
   accounts: number;
   ranked: number;
-  /** Comptes présents dans le plateau mais absents du classement, et pourquoi. */
+  /** Membres présents dans le ladder mais absents du classement, et pourquoi. */
   excluded: Array<{ label: string; reason: string }>;
 }
 
@@ -49,7 +59,7 @@ function slugify(gameName: string, tagLine: string): string {
 }
 
 /** Courbe de LP : on retire les paliers plats pour ne garder que les marches. */
-function lpCurve(samples: store.LpSample[]): number[] {
+function lpCurve(samples: LpSample[]): number[] {
   const out: number[] = [];
   for (const sample of samples) {
     if (out.length === 0 || out[out.length - 1] !== sample.absoluteLp) {
@@ -60,7 +70,7 @@ function lpCurve(samples: store.LpSample[]): number[] {
 }
 
 function sessionOf(
-  samples: store.LpSample[],
+  samples: LpSample[],
   games: GameRecord[],
   now: number,
 ): RankingEntry["session"] {
@@ -76,7 +86,7 @@ function sessionOf(
 
   // Cas nominal : un relevé antérieur à la fenêtre sert d'ancre, la variation
   // est alors exacte, y compris pour les parties dont le delta est inconnu.
-  let anchor: store.LpSample | undefined;
+  let anchor: LpSample | undefined;
   for (const sample of samples) {
     if (sample.ts <= dayAgo) anchor = sample;
     else break;
@@ -151,11 +161,15 @@ function dominantRole(games: GameRecord[]): Role | undefined {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
-export async function buildSnapshots(now: number): Promise<{
-  snapshots: Record<string, RankingSnapshot>;
-  meta: SnapshotMeta;
-}> {
-  const data = await store.read();
+function labelOf(m: LadderMemberRecord): string {
+  return `${m.gameName}#${m.tagLine}`;
+}
+
+export function buildLadderSnapshot(
+  ladderId: string,
+  now: number,
+): { snapshots: Record<string, RankingSnapshot>; meta: SnapshotMeta } {
+  const members = listMembers(ladderId);
   const splitName = process.env.SPLIT_NAME ?? "SoloQ";
   const splitEndsAt = process.env.SPLIT_ENDS_AT
     ? Date.parse(process.env.SPLIT_ENDS_AT)
@@ -167,23 +181,24 @@ export async function buildSnapshots(now: number): Promise<{
     "low-elo": [],
   };
 
-  for (const account of data.roster) {
-    const label = `${account.gameName}#${account.tagLine}`;
-    if (!account.puuid) {
-      excluded.push({ label, reason: account.error ?? "Pas encore synchronisé" });
+  for (const member of members) {
+    const label = labelOf(member);
+    if (!member.puuid) {
+      excluded.push({ label, reason: member.resolveError ?? "Pas encore synchronisé" });
       continue;
     }
-    const samples = data.samples[account.puuid] ?? [];
+    const account = getPlayer(member.puuid);
+    const samples = listSamples(member.puuid);
     const latest = samples.at(-1);
-    if (!latest) {
+    if (!account || !latest) {
       excluded.push({
         label,
-        reason: account.error ?? "Aucun relevé de rang pour l'instant",
+        reason: account?.lastError ?? "Aucun relevé de rang pour l'instant",
       });
       continue;
     }
 
-    const allGames = data.games[account.puuid] ?? [];
+    const allGames = listGames(member.puuid);
     const window = allGames.slice(0, WINDOW);
     const rank = {
       tier: latest.tier,
@@ -198,28 +213,28 @@ export async function buildSnapshots(now: number): Promise<{
     );
 
     const player: Player = {
-      puuid: account.puuid,
-      slug: slugify(account.gameName, account.tagLine),
-      gameName: account.gameName,
-      tagLine: account.tagLine,
-      region: account.region,
+      puuid: member.puuid,
+      slug: slugify(member.gameName, member.tagLine),
+      gameName: member.gameName,
+      tagLine: member.tagLine,
+      region: member.region,
       profileIconId: account.profileIconId ?? 0,
       summonerLevel: account.summonerLevel ?? 0,
-      mainRole: account.roleOverride ?? dominantRole(window) ?? "MIDDLE",
-      streamer: account.streamer,
-      country: account.country,
-      team: account.teamName
+      mainRole: member.roleOverride ?? dominantRole(window) ?? "MIDDLE",
+      streamer: member.streamer,
+      country: member.country,
+      team: member.teamName
         ? {
-            id: account.teamTag ?? account.teamName,
-            name: account.teamName,
-            tag: account.teamTag ?? account.teamName.slice(0, 3).toUpperCase(),
+            id: member.teamTag ?? member.teamName,
+            name: member.teamName,
+            tag: member.teamTag ?? member.teamName.slice(0, 3).toUpperCase(),
           }
         : undefined,
     };
 
-    byBracket[account.bracket].push({
+    byBracket[member.bracket].push({
       player,
-      bracket: account.bracket,
+      bracket: member.bracket,
       rank,
       absoluteLp: absoluteLp(rank),
       session: sessionOf(samples, allGames, now),
@@ -236,26 +251,25 @@ export async function buildSnapshots(now: number): Promise<{
         account.peakAbsoluteLp ?? 0,
         samples.reduce((m, s) => Math.max(m, s.absoluteLp), 0),
       ),
-      live: data.live[account.puuid] ?? null,
+      live: getLive(member.puuid),
       recentGames: allGames.slice(0, 12),
       lastGameAt: allGames[0]?.endedAt ?? null,
     });
   }
 
-  // Coupe apex : celle de la plateforme la plus représentée dans le plateau.
+  // Coupe apex : celle de la plateforme la plus représentée dans CE ladder.
   const platformCount = new Map<string, number>();
-  for (const a of data.roster) {
-    const p = PLATFORM[a.region];
+  for (const m of members) {
+    const p = PLATFORM[m.region];
     platformCount.set(p, (platformCount.get(p) ?? 0) + 1);
   }
-  const mainPlatform = [...platformCount.entries()].sort(
-    (a, b) => b[1] - a[1],
-  )[0]?.[0];
-  const rawCutoff = mainPlatform ? data.cutoffs[mainPlatform] : undefined;
+  const mainPlatform = [...platformCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const rawCutoff = mainPlatform ? getCutoff(mainPlatform) : null;
   const cutoff = rawCutoff
     ? { challenger: rawCutoff.challenger, grandmaster: rawCutoff.grandmaster }
     : null;
 
+  const { lastSync, lastSyncError } = getSyncMeta();
   const snapshots: Record<string, RankingSnapshot> = {};
   let ranked = 0;
   for (const bracket of ["high-elo", "low-elo"] as const) {
@@ -267,7 +281,7 @@ export async function buildSnapshots(now: number): Promise<{
       bracketId: bracket,
       splitName,
       splitEndsAt: Number.isNaN(splitEndsAt as number) ? null : splitEndsAt,
-      updatedAt: data.lastSync ?? now,
+      updatedAt: lastSync ?? now,
       cutoff,
       entries,
     };
@@ -277,9 +291,9 @@ export async function buildSnapshots(now: number): Promise<{
     snapshots,
     meta: {
       source: "riot",
-      lastSync: data.lastSync,
-      lastSyncError: data.lastSyncError,
-      accounts: data.roster.length,
+      lastSync,
+      lastSyncError,
+      accounts: members.length,
       ranked,
       excluded,
     },

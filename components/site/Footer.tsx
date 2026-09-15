@@ -31,10 +31,10 @@ export function Footer({ updatedLabel }: { updatedLabel: string }) {
             <ul className="mt-3 space-y-2">
               <li>
                 <Link
-                  href="/admin"
+                  href="/ladders"
                   className="text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-acid"
                 >
-                  Plateau suivi
+                  Mes ladders
                 </Link>
               </li>
               {["À propos", "Journal", "Contact"].map((item) => (

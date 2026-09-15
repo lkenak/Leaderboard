@@ -14,6 +14,12 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+
+  // Ouvre la base (et applique les migrations en attente) une fois pour
+  // toutes, avant la première requête — pas au fil des rendus de page.
+  const { getDb } = await import("@/lib/db/client");
+  getDb();
+
   if (!process.env.HTTP_PROXY && !process.env.HTTPS_PROXY) return;
 
   const { setGlobalDispatcher, EnvHttpProxyAgent } = await import("undici");

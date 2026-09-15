@@ -84,8 +84,10 @@ if ! node -v 2>/dev/null | grep -q '^v22\.'; then
 fi
 ok "$(node -v) / npm $(npm -v)"
 
-say "git, rsync, Caddy, mises à jour automatiques"
-apt-get install -y -qq git rsync debian-keyring debian-archive-keyring apt-transport-https
+say "git, rsync, sqlite3, Caddy, mises à jour automatiques"
+# sqlite3 : uniquement pour deploy/backup.sh (commande .backup, cohérente même
+# en mode WAL) — better-sqlite3 lui-même n'a besoin d'aucun paquet système.
+apt-get install -y -qq git rsync sqlite3 debian-keyring debian-archive-keyring apt-transport-https
 if ! command -v caddy >/dev/null; then
   # Le dépôt officiel : celui d'Ubuntu est souvent très en retard.
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
@@ -131,12 +133,14 @@ ok "unités installées"
 if [ ! -f /etc/leaderboard.env ]; then
   install -m 600 -o root -g root \
     "$SRV/repo/deploy/leaderboard.env.example" /etc/leaderboard.env
-  # Les deux secrets sont générés ici : personne n'a à inventer un mot de passe,
-  # et ils n'auront jamais transité par un historique de commandes.
-  ADMIN_PW=$(node -e "console.log(require('crypto').randomBytes(12).toString('base64url'))")
+  # Générés ici : ni REFRESH_SECRET ni AUTH_SECRET n'auront transité par un
+  # historique de commandes. AUTH_DISCORD_ID/SECRET restent à renseigner à la
+  # main — ce sont ceux de l'application créée sur le portail développeurs
+  # Discord, rien à générer côté serveur.
   REFRESH=$(node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))")
-  sed -i "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=$ADMIN_PW|" /etc/leaderboard.env
+  AUTH_SECRET_VALUE=$(node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))")
   sed -i "s|^REFRESH_SECRET=.*|REFRESH_SECRET=$REFRESH|" /etc/leaderboard.env
+  sed -i "s|^AUTH_SECRET=.*|AUTH_SECRET=$AUTH_SECRET_VALUE|" /etc/leaderboard.env
   ok "/etc/leaderboard.env créé, secrets générés"
   GENERATED=1
 else
@@ -154,24 +158,23 @@ visudo -cf /etc/sudoers.d/leaderboard >/dev/null
 ok "règle installée et validée"
 
 printf '\n\033[1;32m═══ Préparation terminée ═══\033[0m\n\n'
-if [ "${GENERATED:-0}" = "1" ]; then
-  printf 'Ton mot de passe /admin a été généré :\n\n    \033[1;33m%s\033[0m\n\n' "$ADMIN_PW"
-  printf 'Note-le maintenant. Pour le relire plus tard :\n'
-  printf '    sudo grep ADMIN_PASSWORD /etc/leaderboard.env\n\n'
-fi
 cat <<'NEXT'
-Il reste trois choses, dans cet ordre :
+Il reste quatre choses, dans cet ordre :
 
-  1. La clé Riot — sans elle le site tourne en mode démonstration, ce qui
+  1. L'application Discord — https://discord.com/developers/applications,
+     redirect URI https://<ton-domaine>/api/auth/callback/discord :
+       sudo nano /etc/leaderboard.env     # AUTH_DISCORD_ID, AUTH_DISCORD_SECRET
+
+  2. La clé Riot — sans elle le site tourne en mode démonstration, ce qui
      suffit d'ailleurs pour valider le déploiement :
        sudo nano /etc/leaderboard.env     # remplir RIOT_API_KEY
 
-  2. Le premier déploiement :
+  3. Le premier déploiement :
        sudo -u leaderboard /srv/leaderboard/repo/deploy/deploy.sh
        sudo systemctl enable --now leaderboard
-       curl -s localhost:3000/ranking -o /dev/null -w '%{http_code}\n'   # attendu : 200
+       curl -s localhost:3000/l/demo -o /dev/null -w '%{http_code}\n'   # attendu : 200
 
-  3. Le domaine et HTTPS — l'enregistrement A doit déjà pointer sur cette IP :
+  4. Le domaine et HTTPS — l'enregistrement A doit déjà pointer sur cette IP :
        sudo cp /srv/leaderboard/repo/deploy/Caddyfile /etc/caddy/Caddyfile
        sudo nano /etc/caddy/Caddyfile      # remplacer ladder.exemple.fr
        sudo systemctl reload caddy

@@ -1,64 +1,70 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { adminPasswordSet, isAdmin } from "@/lib/admin";
-import { read } from "@/lib/store";
+import { auth } from "@/lib/auth";
+import { getLadderBySlug, listMembers } from "@/lib/db/ladders";
+import { getPlayer, listGames, listSamples } from "@/lib/db/riot-players";
 import { hasKey, refreshIntervalMs } from "@/lib/riot/refresh";
-import { agoLabel, thousands } from "@/lib/format";
+import { agoLabel, clockTime, thousands } from "@/lib/format";
 import { rankShort } from "@/lib/lol";
 import { reportedNow } from "@/lib/now";
 import { cn } from "@/lib/cn";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Avatar } from "@/components/ui/Avatar";
-import { AddAccountForm } from "@/components/admin/AddAccountForm";
-import { SignInForm } from "@/components/admin/SignInForm";
-import { SyncButton } from "@/components/admin/SyncButton";
+import { AddAccountForm } from "@/components/settings/AddAccountForm";
+import { SyncButton } from "@/components/settings/SyncButton";
 import {
+  addAccountAction,
   moveBracketAction,
   removeAccountAction,
   retryAccountAction,
-  signOutAction,
+  syncNowAction,
 } from "./actions";
-import { clockTime } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Plateau suivi",
+  title: "Réglages du ladder",
   robots: { index: false, follow: false },
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function LadderSettingsPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   await connection();
+  const { slug } = await params;
   const now = reportedNow();
 
-  if (!(await isAdmin())) {
+  const ladder = getLadderBySlug(slug);
+  if (!ladder) notFound();
+
+  const session = await auth();
+  if (!session?.user) redirect(`/login?from=/l/${slug}/settings`);
+
+  const headerUser = { name: session.user.name ?? "Discord", avatar: session.user.image ?? null };
+
+  if (session.user.id !== ladder.ownerUserId) {
     return (
       <>
-        <Header liveCount={0} />
+        <Header ladderHref={`/l/${slug}`} ladderLabel={ladder.name} user={headerUser} />
         <main className="flex-1 pb-24">
           <div className="shell max-w-md pt-24">
             <h1 className="text-[1.75rem] font-bold tracking-[-0.02em] text-ink">
-              Administration
+              Réglages
             </h1>
-            {adminPasswordSet() ? (
-              <>
-                <p className="mt-3 text-[0.875rem] text-ink-3">
-                  Cette page permet d&apos;ajouter et de retirer des comptes du
-                  classement.
-                </p>
-                <div className="mt-8">
-                  <SignInForm />
-                </div>
-              </>
-            ) : (
-              <p className="mt-3 text-[0.875rem] leading-relaxed text-ink-3">
-                Aucun mot de passe n&apos;est configuré, donc la page est fermée
-                en production. Définir <code className="num text-ink-2">ADMIN_PASSWORD</code>{" "}
-                dans les variables d&apos;environnement pour l&apos;ouvrir.
-              </p>
-            )}
+            <p className="mt-3 text-[0.875rem] text-ink-3">
+              Seul le propriétaire de « {ladder.name} » peut modifier ses comptes.
+            </p>
+            <Link
+              href={`/l/${slug}`}
+              className="mt-6 inline-block num text-[0.75rem] tracking-[0.1em] text-acid"
+            >
+              VOIR LE CLASSEMENT →
+            </Link>
           </div>
         </main>
         <Footer updatedLabel={clockTime(now)} />
@@ -66,38 +72,35 @@ export default async function AdminPage() {
     );
   }
 
-  const store = await read();
-  const roster = [...store.roster].sort(
-    (a, b) =>
-      a.bracket.localeCompare(b.bracket) ||
-      a.gameName.localeCompare(b.gameName, "fr"),
+  const members = [...listMembers(ladder.id)].sort(
+    (a, b) => a.bracket.localeCompare(b.bracket) || a.gameName.localeCompare(b.gameName, "fr"),
   );
   const keyPresent = hasKey();
-  const failing = roster.filter((a) => a.error).length;
+  const failing = members.filter((m) => m.resolveError).length;
+  const lastSyncs = members
+    .map((m) => (m.puuid ? getPlayer(m.puuid) : null))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p));
+  const lastSync = lastSyncs.length > 0 ? Math.max(...lastSyncs.map((p) => p.updatedAt)) : null;
+
+  const boundAdd = addAccountAction.bind(null, slug);
+  const boundSync = syncNowAction.bind(null, slug);
+  const boundRemove = removeAccountAction.bind(null, slug);
+  const boundMove = moveBracketAction.bind(null, slug);
+  const boundRetry = retryAccountAction.bind(null, slug);
 
   return (
     <>
-      <Header liveCount={0} />
+      <Header ladderHref={`/l/${slug}`} ladderLabel={ladder.name} user={headerUser} />
       <main className="flex-1 pb-24">
         <div className="shell pt-12">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="label">Administration</p>
+              <p className="label">Réglages</p>
               <h1 className="mt-3 text-[2rem] leading-none font-bold tracking-[-0.03em] text-ink">
-                Plateau suivi
+                {ladder.name}
               </h1>
             </div>
-            <div className="flex items-center gap-3">
-              <SyncButton />
-              <form action={signOutAction}>
-                <button
-                  type="submit"
-                  className="num h-9 rounded-sm px-3 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-ink-4 transition-colors duration-150 hover:text-ink-2"
-                >
-                  Quitter
-                </button>
-              </form>
-            </div>
+            <SyncButton action={boundSync} />
           </div>
 
           {/* — État du branchement : la première chose à savoir en arrivant — */}
@@ -107,7 +110,7 @@ export default async function AdminPage() {
               value={keyPresent ? "configurée" : "absente"}
               tone={keyPresent ? "ok" : "bad"}
             />
-            <Tile label="Comptes" value={thousands(roster.length)} />
+            <Tile label="Comptes" value={thousands(members.length)} />
             <Tile
               label="En erreur"
               value={thousands(failing)}
@@ -115,30 +118,16 @@ export default async function AdminPage() {
             />
             <Tile
               label="Dernier relevé"
-              value={store.lastSync ? agoLabel(store.lastSync, now) : "jamais"}
-              tone={store.lastSync ? undefined : "bad"}
+              value={lastSync ? agoLabel(lastSync, now) : "jamais"}
+              tone={lastSync ? undefined : "bad"}
             />
           </div>
 
           {!keyPresent && (
             <div className="mt-4 rounded-md border border-blaze/40 bg-blaze/8 px-4 py-3.5 text-[0.8125rem] leading-relaxed text-ink-2">
-              <strong className="font-semibold text-blaze">
-                Aucune clé Riot.
-              </strong>{" "}
-              Le classement affiche des données de démonstration. Pour brancher
-              les vrais comptes : prendre une clé <em>personnelle</em> sur{" "}
-              <a
-                href="https://developer.riotgames.com"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-acid underline decoration-acid/40 underline-offset-2"
-              >
-                developer.riotgames.com
-              </a>{" "}
-              (« Register Product » → Personal : elle n&apos;expire pas), copier{" "}
-              <code className="num">.env.example</code> vers{" "}
-              <code className="num">.env.local</code>, y coller la clé, puis
-              relancer le serveur.
+              <strong className="font-semibold text-blaze">Aucune clé Riot configurée sur ce serveur.</strong>{" "}
+              Les comptes peuvent être ajoutés, mais aucun rang ne sera relevé jusqu&apos;à ce
+              qu&apos;une clé Riot soit configurée côté serveur.
             </div>
           )}
 
@@ -151,64 +140,56 @@ export default async function AdminPage() {
               {Math.round(refreshIntervalMs() / 60_000)} minutes, ou tout de
               suite avec « Relever maintenant ».
             </p>
-            <AddAccountForm />
+            <AddAccountForm action={boundAdd} />
           </section>
 
           {/* — Liste — */}
           <section className="mt-10">
             <div className="flex items-baseline justify-between">
-              <h2 className="text-sub font-semibold text-ink">
-                Comptes suivis
-              </h2>
+              <h2 className="text-sub font-semibold text-ink">Comptes suivis</h2>
               <Link
-                href="/ranking"
+                href={`/l/${slug}`}
                 className="num text-micro tracking-[0.1em] text-ink-3 transition-colors duration-150 hover:text-acid"
               >
                 VOIR LE CLASSEMENT →
               </Link>
             </div>
 
-            {roster.length === 0 ? (
+            {members.length === 0 ? (
               <p className="mt-5 rounded-md border border-hair bg-panel px-4 py-10 text-center text-[0.875rem] text-ink-3">
-                Aucun compte pour l&apos;instant. Le classement affiche des
-                données de démonstration jusqu&apos;au premier ajout.
+                Aucun compte pour l&apos;instant. Ajoute ton compte et ceux de tes amis.
               </p>
             ) : (
               <ul className="mt-5 overflow-hidden rounded-md border border-hair bg-panel">
-                {roster.map((account, i) => {
-                  const samples = account.puuid
-                    ? (store.samples[account.puuid] ?? [])
-                    : [];
+                {members.map((member, i) => {
+                  const account = member.puuid ? getPlayer(member.puuid) : null;
+                  const samples = member.puuid ? listSamples(member.puuid) : [];
                   const latest = samples.at(-1);
-                  const games = account.puuid
-                    ? (store.games[account.puuid] ?? []).length
-                    : 0;
+                  const games = member.puuid ? listGames(member.puuid).length : 0;
 
                   return (
                     <li
-                      key={account.id}
+                      key={member.id}
                       className={cn(
                         "flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5",
                         i > 0 && "border-t border-hair",
-                        account.error && "bg-blaze/5",
+                        member.resolveError && "bg-blaze/5",
                       )}
                     >
                       <Avatar
-                        profileIconId={account.profileIconId}
-                        name={account.gameName}
-                        country={account.country}
+                        profileIconId={account?.profileIconId ?? undefined}
+                        name={member.gameName}
+                        country={member.country}
                         size={34}
                       />
 
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-name font-semibold text-ink">
-                          {account.gameName}
-                          <span className="num ml-1 font-normal text-ink-4">
-                            #{account.tagLine}
-                          </span>
+                          {member.gameName}
+                          <span className="num ml-1 font-normal text-ink-4">#{member.tagLine}</span>
                         </p>
                         <p className="num mt-1 flex flex-wrap items-center gap-x-2.5 text-[0.625rem] tracking-[0.06em] text-ink-4">
-                          <span>{account.region}</span>
+                          <span>{member.region}</span>
                           {latest && (
                             <span className="text-ink-3">
                               {rankShort(latest)} · {latest.leaguePoints} LP
@@ -220,43 +201,36 @@ export default async function AdminPage() {
                           <span>
                             {games} partie{games > 1 ? "s" : ""}
                           </span>
-                          {account.teamName && <span>{account.teamName}</span>}
+                          {member.teamName && <span>{member.teamName}</span>}
                         </p>
-                        {account.error && (
-                          <p className="mt-1.5 text-[0.75rem] text-blaze">
-                            {account.error}
-                          </p>
+                        {member.resolveError && (
+                          <p className="mt-1.5 text-[0.75rem] text-blaze">{member.resolveError}</p>
                         )}
                       </div>
 
                       {/* Bascule de sélection : un seul bouton, pas un menu. */}
-                      <form action={moveBracketAction}>
-                        <input type="hidden" name="id" value={account.id} />
+                      <form action={boundMove}>
+                        <input type="hidden" name="id" value={member.id} />
                         <input
                           type="hidden"
                           name="bracket"
-                          value={
-                            account.bracket === "high-elo" ? "low-elo" : "high-elo"
-                          }
+                          value={member.bracket === "high-elo" ? "low-elo" : "high-elo"}
                         />
                         <button
                           type="submit"
                           title="Basculer vers l'autre sélection"
                           className="num h-8 rounded-sm border border-hair px-2.5 text-[0.625rem] font-semibold tracking-[0.08em] uppercase transition-colors duration-150 hover:border-hair-3"
                           style={{
-                            color:
-                              account.bracket === "high-elo"
-                                ? "var(--color-acid)"
-                                : "var(--color-sky)",
+                            color: member.bracket === "high-elo" ? "var(--color-acid)" : "var(--color-sky)",
                           }}
                         >
-                          {account.bracket === "high-elo" ? "High elo" : "Low elo"}
+                          {member.bracket === "high-elo" ? "High elo" : "Low elo"}
                         </button>
                       </form>
 
-                      {account.error && (
-                        <form action={retryAccountAction}>
-                          <input type="hidden" name="id" value={account.id} />
+                      {member.resolveError && (
+                        <form action={boundRetry}>
+                          <input type="hidden" name="id" value={member.id} />
                           <button
                             type="submit"
                             title="Oublier le puuid et réessayer la résolution — à utiliser après un renommage"
@@ -267,11 +241,11 @@ export default async function AdminPage() {
                         </form>
                       )}
 
-                      <form action={removeAccountAction}>
-                        <input type="hidden" name="id" value={account.id} />
+                      <form action={boundRemove}>
+                        <input type="hidden" name="id" value={member.id} />
                         <button
                           type="submit"
-                          title={`Retirer ${account.gameName}#${account.tagLine} et son historique`}
+                          title={`Retirer ${member.gameName}#${member.tagLine} de ce ladder`}
                           className="num h-8 rounded-sm border border-hair px-2.5 text-[0.625rem] font-semibold tracking-[0.08em] uppercase text-ink-4 transition-colors duration-150 hover:border-blaze/50 hover:text-blaze"
                         >
                           Retirer
@@ -283,12 +257,6 @@ export default async function AdminPage() {
               </ul>
             )}
           </section>
-
-          {store.lastSyncError && (
-            <p className="mt-6 rounded-md border border-blaze/40 bg-blaze/8 px-4 py-3 text-[0.8125rem] text-blaze">
-              Dernier relevé : {store.lastSyncError}
-            </p>
-          )}
         </div>
       </main>
       <Footer updatedLabel={clockTime(now)} />

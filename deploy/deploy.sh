@@ -14,12 +14,14 @@ npm ci
 npm run build
 
 # `output: "standalone"` produit un serveur autonome, mais il n'embarque **ni**
-# .next/static **ni** public — c'est le piège classique : le site démarre,
-# et arrive sans aucun style ni aucune image. Les trois rsync sont obligatoires.
+# .next/static **ni** public **ni** db/ — c'est le piège classique : le site
+# démarre, et arrive sans aucun style ni aucune image (ou, pour db/, sans ses
+# migrations SQL au premier démarrage). Les quatre rsync sont obligatoires.
 mkdir -p "$CURRENT/.next"
 rsync -a --delete .next/standalone/ "$CURRENT/"
 rsync -a --delete .next/static/ "$CURRENT/.next/static/"
 rsync -a --delete public/ "$CURRENT/public/"
+rsync -a --delete db/ "$CURRENT/db/"
 
 sudo systemctl restart leaderboard
 sleep 3

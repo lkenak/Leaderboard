@@ -5,7 +5,7 @@ import { hasKey, isRunning, runSync } from "@/lib/riot/refresh";
  * Déclenche un relevé. Deux usages :
  *  - un cron (Vercel Cron, systemd, cron-job.org) avec l'en-tête
  *    `Authorization: Bearer $REFRESH_SECRET` ;
- *  - le bouton « Relever maintenant » de /admin.
+ *  - le bouton « Relever maintenant » des réglages d'un ladder (`/l/[slug]/settings`).
  *
  * En développement local, le secret est facultatif — l'exiger ne protégerait
  * rien sur une machine à laquelle on a déjà accès, et l'oubli est la première

@@ -9,16 +9,20 @@
     "lint": "eslint",
     "champions:sync": "node --use-env-proxy scripts/sync-champions.mjs",
     "riot:check": "node --use-env-proxy --env-file-if-exists=.env.local scripts/riot-check.mjs",
+    "migrate:legacy": "node --env-file-if-exists=.env.local scripts/migrate-store-to-sqlite.mjs",
     "serve": "./deploy/serve.sh"
   },
   "dependencies": {
+    "better-sqlite3": "^13.0.3",
     "next": "16.3.5",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "undici": "^8.10.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

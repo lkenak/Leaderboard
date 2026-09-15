@@ -3,22 +3,34 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
+import { signOutAction } from "@/app/actions/auth";
 import { Logo } from "./Logo";
 
-const NAV = [
-  { href: "/ranking", label: "Classement", ready: true },
-  { href: "/live", label: "Live", ready: false },
-  { href: "/equipes", label: "Équipes", ready: false },
-  { href: "/historique", label: "Historique", ready: false },
-  { href: "/tierlist", label: "Tier list", ready: false },
-] as const;
+export interface HeaderUser {
+  name: string;
+  avatar: string | null;
+}
 
 /**
  * En-tête collant. Le fond ne devient opaque qu'après 8 px de défilement : au
  * repos, l'en-tête est posé sur la page ; en défilement, il s'en détache par un
  * filet et un fond, sans flou — le flou brouille le tableau qui passe dessous.
+ *
+ * Plus de nav figée sur « le » classement : le site est multi-ladder, donc le
+ * seul lien constant est « Mes ladders », et le ladder consulté s'affiche
+ * comme contexte de page plutôt que comme item de nav cliquable.
  */
-export function Header({ liveCount }: { liveCount: number }) {
+export function Header({
+  liveCount,
+  ladderHref,
+  ladderLabel,
+  user,
+}: {
+  liveCount?: number;
+  ladderHref?: string;
+  ladderLabel?: string;
+  user?: HeaderUser | null;
+}) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -39,58 +51,78 @@ export function Header({ liveCount }: { liveCount: number }) {
       )}
     >
       <div className="shell flex h-16 items-center gap-6">
-        <Link
-          href="/ranking"
-          className="rounded-xs"
-          aria-label="SOLOQ/LADDER — accueil"
-        >
+        <Link href="/" className="rounded-xs" aria-label="SOLOQ/LADDER — accueil">
           <Logo />
         </Link>
 
+        {ladderHref && (
+          <Link
+            href={ladderHref}
+            aria-current="page"
+            className="relative hidden rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink md:block"
+          >
+            {ladderLabel}
+            <span className="absolute inset-x-3 -bottom-px h-[2px] bg-acid" />
+          </Link>
+        )}
+
         <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
-          {NAV.map((item) =>
-            item.ready ? (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={item.href === "/ranking" ? "page" : undefined}
-                className={cn(
-                  "relative rounded-xs px-3 py-2 text-[0.8125rem] font-medium transition-colors duration-150",
-                  item.href === "/ranking"
-                    ? "text-ink"
-                    : "text-ink-3 hover:text-ink",
-                )}
-              >
-                {item.label}
-                {item.href === "/ranking" && (
-                  <span className="absolute inset-x-3 -bottom-px h-[2px] bg-acid" />
-                )}
-              </Link>
-            ) : (
-              <span
-                key={item.href}
-                aria-disabled
-                title="Bientôt"
-                className="flex cursor-default items-center gap-1.5 rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink-4"
-              >
-                {item.label}
-                <span className="num rounded-[2px] bg-panel-3 px-1 py-px text-[0.5625rem] font-medium tracking-[0.08em] text-ink-3">
-                  SOON
-                </span>
-              </span>
-            ),
+          {user && (
+            <Link
+              href="/ladders"
+              className="rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
+            >
+              Mes ladders
+            </Link>
           )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-sm border border-hair bg-panel/60 px-2.5 py-1.5 sm:flex">
-            <span className="relative flex size-[6px]">
-              <span className="absolute inset-0 animate-pulse-dot rounded-full bg-screen" />
+          {liveCount !== undefined && (
+            <span className="hidden items-center gap-2 rounded-sm border border-hair bg-panel/60 px-2.5 py-1.5 sm:flex">
+              <span className="relative flex size-[6px]">
+                <span className="absolute inset-0 animate-pulse-dot rounded-full bg-screen" />
+              </span>
+              <span className="num text-micro font-medium tracking-[0.1em] text-ink-2">
+                {liveCount} EN JEU
+              </span>
             </span>
-            <span className="num text-micro font-medium tracking-[0.1em] text-ink-2">
-              {liveCount} EN JEU
-            </span>
-          </span>
+          )}
+
+          {user ? (
+            <div className="hidden items-center gap-2.5 sm:flex">
+              {user.avatar && (
+                // eslint-disable-next-line @next/next/no-img-element -- source distante, taille fixe, cf. components/ui/Avatar.tsx
+                <img
+                  src={user.avatar}
+                  alt=""
+                  width={24}
+                  height={24}
+                  className="size-6 shrink-0 rounded-full ring-1 ring-hair"
+                />
+              )}
+              <span className="max-w-[10ch] truncate text-[0.8125rem] text-ink-2">
+                {user.name}
+              </span>
+              {/* `contents` : le <form> ne doit pas devenir une boîte bloc qui
+                  casse l'alignement flex de ses voisins (avatar, pseudo). */}
+              <form action={signOutAction} className="contents">
+                <button
+                  type="submit"
+                  className="num shrink-0 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-ink-4 transition-colors duration-150 hover:text-ink-2"
+                >
+                  Déconnexion
+                </button>
+              </form>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="num hidden h-9 items-center rounded-sm bg-acid px-4 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-acid-ink transition-[filter] duration-150 hover:brightness-110 sm:flex"
+            >
+              Se connecter
+            </Link>
+          )}
 
           <button
             type="button"
@@ -108,11 +140,7 @@ export function Header({ liveCount }: { liveCount: number }) {
                   strokeLinecap="round"
                 />
               ) : (
-                <path
-                  d="M0 1h15M0 5.5h15M0 10h11"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                />
+                <path d="M0 1h15M0 5.5h15M0 10h11" stroke="currentColor" strokeWidth="1.5" />
               )}
             </svg>
           </button>
@@ -120,34 +148,53 @@ export function Header({ liveCount }: { liveCount: number }) {
       </div>
 
       {open && (
-        <nav
-          className="border-t border-hair bg-base md:hidden"
-          aria-label="Navigation principale"
-        >
+        <nav className="border-t border-hair bg-base md:hidden" aria-label="Navigation principale">
           <ul className="shell flex flex-col py-2">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                {item.ready ? (
-                  <Link
-                    href={item.href}
-                    onClick={() => setOpen(false)}
-                    className="flex items-center justify-between py-3 text-[0.9375rem] font-medium text-ink"
-                  >
-                    {item.label}
-                    {item.href === "/ranking" && (
-                      <span className="size-1.5 rounded-full bg-acid" />
-                    )}
-                  </Link>
-                ) : (
-                  <span className="flex items-center justify-between py-3 text-[0.9375rem] font-medium text-ink-4">
-                    {item.label}
-                    <span className="num rounded-[2px] bg-panel-3 px-1.5 py-0.5 text-[0.5625rem] tracking-[0.08em] text-ink-3">
-                      SOON
-                    </span>
-                  </span>
-                )}
+            {ladderHref && (
+              <li>
+                <Link
+                  href={ladderHref}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between py-3 text-[0.9375rem] font-medium text-ink"
+                >
+                  {ladderLabel}
+                  <span className="size-1.5 rounded-full bg-acid" />
+                </Link>
               </li>
-            ))}
+            )}
+            {user ? (
+              <>
+                <li>
+                  <Link
+                    href="/ladders"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink"
+                  >
+                    Mes ladders
+                  </Link>
+                </li>
+                <li>
+                  <form action={signOutAction}>
+                    <button
+                      type="submit"
+                      className="flex w-full items-center py-3 text-[0.9375rem] font-medium text-ink-3"
+                    >
+                      Déconnexion
+                    </button>
+                  </form>
+                </li>
+              </>
+            ) : (
+              <li>
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center py-3 text-[0.9375rem] font-medium text-ink"
+                >
+                  Se connecter
+                </Link>
+              </li>
+            )}
           </ul>
         </nav>
       )}
