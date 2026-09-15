@@ -25,6 +25,6 @@ rsync -a --delete db/ "$CURRENT/db/"
 
 sudo systemctl restart leaderboard
 sleep 3
-curl --fail --silent --show-error -o /dev/null http://127.0.0.1:3000/l/demo \
-  && echo "déployé — /l/demo répond" \
+curl --fail --silent --show-error -o /dev/null http://127.0.0.1:3000/login \
+  && echo "déployé — /login répond" \
   || { echo "le site ne répond pas : sudo journalctl -u leaderboard -n 50"; exit 1; }

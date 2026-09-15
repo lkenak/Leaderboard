@@ -167,14 +167,14 @@ Il reste quatre choses, dans cet ordre :
      redirect URI https://<ton-domaine>/api/auth/callback/discord :
        sudo nano /etc/leaderboard.env     # AUTH_DISCORD_ID, AUTH_DISCORD_SECRET
 
-  2. La clé Riot — sans elle le site tourne en mode démonstration, ce qui
-     suffit d'ailleurs pour valider le déploiement :
+  2. La clé Riot — sans elle les comptes ajoutés ne peuvent pas être relevés,
+     mais le site répond déjà, ce qui suffit pour valider le déploiement :
        sudo nano /etc/leaderboard.env     # remplir RIOT_API_KEY
 
   3. Le premier déploiement :
        sudo -u leaderboard /srv/leaderboard/repo/deploy/deploy.sh
        sudo systemctl enable --now leaderboard
-       curl -s localhost:3000/l/demo -o /dev/null -w '%{http_code}\n'   # attendu : 200
+       curl -s localhost:3000/login -o /dev/null -w '%{http_code}\n'   # attendu : 200
 
   4. Le domaine et HTTPS — l'enregistrement A doit déjà pointer sur cette IP :
        sudo cp /srv/leaderboard/repo/deploy/Caddyfile /etc/caddy/Caddyfile
