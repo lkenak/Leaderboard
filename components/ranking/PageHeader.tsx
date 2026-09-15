@@ -77,15 +77,24 @@ export function PageHeader({
           <div className="lg:col-span-5 xl:col-span-4">
             <article className="grain relative overflow-hidden rounded-lg border border-hair bg-panel">
               <span className="grain-layer" />
-              {/* L'emblème sert de matière, pas d'illustration : très large,
-                  très sombre, coupé par le bord de la carte. */}
+              {/* L'emblème sert de matière, pas d'illustration : très sombre,
+                  coupé par le bord de la carte.
+
+                  Les fichiers sont en 16:9 (1280x720 ou 2560x1440), avec le
+                  crest posé au centre d'un cadre presque vide. Les afficher
+                  dans une boîte carrée sans `object-cover` les étire — c'est
+                  `fill` par défaut sur un <img> — et le crest ressort étroit et
+                  haut. `object-cover` rogne les marges vides au lieu de
+                  déformer le dessin ; `object-contain` ne conviendrait pas ici,
+                  il ferait entrer tout le cadre vide et réduirait le crest au
+                  quart de sa taille. */}
               <Image
                 src={emblemSrc(leader.rank.tier)}
                 alt=""
-                width={260}
-                height={260}
+                width={373}
+                height={210}
                 aria-hidden
-                className="pointer-events-none absolute -top-6 -right-8 size-[210px] opacity-[0.2] select-none"
+                className="pointer-events-none absolute -top-6 -right-8 size-[210px] object-cover opacity-[0.2] select-none"
               />
 
               <div className="relative p-5">

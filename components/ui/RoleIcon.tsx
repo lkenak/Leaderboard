@@ -26,7 +26,7 @@ export function RoleIcon({
       width={size}
       height={size}
       unoptimized
-      className={cn("shrink-0 select-none opacity-80", className)}
+      className={cn("shrink-0 object-contain select-none opacity-80", className)}
       style={{ width: size, height: size }}
     />
   );
