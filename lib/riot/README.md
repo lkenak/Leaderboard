@@ -11,12 +11,48 @@ démarrer : il faut une clé et des comptes.
    La clé de développement obtenue en deux clics sur la page d'accueil
    **expire toutes les 24 h** ; la clé personnelle, non. Elle s'enregistre sans
    processus de vérification et convient exactement à un site privé entre amis.
-2. `cp .env.example .env.local`, puis y coller la clé.
-3. `npm run riot:check` — valide la clé avant d'aller plus loin.
-   `npm run riot:check -- "Pseudo#TAG"` valide en plus la résolution d'un compte.
-4. `npm run dev`, puis `/admin` → ajouter les comptes, un Riot ID par ligne.
-5. « Relever maintenant » pour le premier relevé, ou attendre le relevé
+2. La poser, au choix :
+   - dans `RIOT_API_KEY` (`cp .env.example .env.local`) — la bonne place pour
+     une clé personnelle, qu'on ne touchera plus ;
+   - ou **depuis `/admin`**, dans le champ « Coller une clé » — la bonne place
+     pour une clé de développement, qu'il faut renouveler chaque jour.
+3. `npm run dev`, puis `/admin` → ajouter les comptes, un Riot ID par ligne.
+4. « Relever maintenant » pour le premier relevé, ou attendre le relevé
    automatique.
+
+`npm run riot:check` valide une clé placée dans `.env.local` en ligne de
+commande ; `npm run riot:check -- "Pseudo#TAG"` valide en plus la résolution
+d'un compte. Une clé collée depuis `/admin` est vérifiée à la saisie, il n'y a
+rien à lancer.
+
+## La clé saisie depuis `/admin`
+
+Une clé de développement meurt toutes les 24 h, et la renouveler en éditant
+`.env.local` demande d'ouvrir un éditeur puis de **relancer le serveur** —
+chaque matin. Le champ de `/admin` évite les deux.
+
+- **Ordre de résolution** : clé saisie d'abord, `RIOT_API_KEY` ensuite. Coller
+  une clé surcharge donc l'environnement ; « Oublier cette clé » rend la main à
+  `RIOT_API_KEY`.
+- **Vérifiée avant d'être retenue** : un appel à `challengerleagues` tranche
+  tout de suite. Une clé fausse rangée en silence, ce serait un classement qui
+  cesse de bouger sans rien dire.
+- **Rangée dans `.data/riot-key.json`**, en `0600` — pas dans `store.json`, que
+  l'on copie et que l'on colle dans un rapport de bug. Le secret ne voyage pas
+  avec les données. Il n'est pas chiffré, et ce serait vain : la clé de
+  déchiffrement vivrait sur le même disque, lisible par qui peut déjà lire ce
+  fichier.
+- **Jamais renvoyée au navigateur** : `keyStatus()` n'expose qu'un masque
+  (`RGAPI-xxxx…9f2c`).
+- **Le 401 coupe les relevés.** Dès que Riot refuse la clé, le refus est noté
+  (par empreinte, pour qu'une clé neuve n'hérite pas du reproche fait à
+  l'ancienne), `syncIfStale` s'arrête, et le bandeau du classement dit quoi
+  faire. Sans cela, le site cognerait l'API toutes les cinq minutes avec une
+  clé morte.
+- **Un processus, un cache.** Le fichier est lu une fois par processus. Sur un
+  hébergement qui multiplie les instances sans disque partagé — Vercel, par
+  exemple — une clé saisie sur l'une n'est pas vue par les autres : là, c'est
+  `RIOT_API_KEY` qu'il faut utiliser.
 
 ## Ce que coûte un cycle
 
@@ -73,6 +109,7 @@ viennent directement de l'API.
 | Fichier | Rôle |
 | --- | --- |
 | `routing.ts` | les deux familles d'hôtes Riot (régionale / plateforme) |
+| `key.ts` | résolution de la clé : saisie depuis `/admin`, sinon environnement |
 | `client.ts` | `fetch` limité en débit, 404 attendus, erreurs typées |
 | `sync.ts` | le job : résolution, rangs, parties, partie en cours, coupes apex |
 | `snapshot.ts` | projection du stockage vers le modèle des vues, sans réseau |

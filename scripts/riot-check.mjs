@@ -17,6 +17,8 @@ if (!KEY) {
   console.error("✗ RIOT_API_KEY absente.");
   console.error("  Copier .env.example vers .env.local et y coller une clé personnelle");
   console.error("  (https://developer.riotgames.com → Register Product → Personal).");
+  console.error("  Ce script ne lit que l'environnement : une clé collée depuis /admin");
+  console.error("  est vérifiée à la saisie, il n'y a rien à lancer ici.");
   process.exit(1);
 }
 if (!PLATFORM[REGION]) {

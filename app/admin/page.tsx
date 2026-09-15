@@ -3,7 +3,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { adminPasswordSet, isAdmin } from "@/lib/admin";
 import { read } from "@/lib/store";
-import { hasKey, refreshIntervalMs } from "@/lib/riot/refresh";
+import { refreshIntervalMs } from "@/lib/riot/refresh";
+import { DEV_KEY_LIFETIME_MS, keyStatus } from "@/lib/riot/key";
 import { agoLabel, thousands } from "@/lib/format";
 import { rankShort } from "@/lib/lol";
 import { reportedNow } from "@/lib/now";
@@ -12,6 +13,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Avatar } from "@/components/ui/Avatar";
 import { AddAccountForm } from "@/components/admin/AddAccountForm";
+import { RiotKeyForm } from "@/components/admin/RiotKeyForm";
 import { SignInForm } from "@/components/admin/SignInForm";
 import { SyncButton } from "@/components/admin/SyncButton";
 import {
@@ -72,7 +74,15 @@ export default async function AdminPage() {
       a.bracket.localeCompare(b.bracket) ||
       a.gameName.localeCompare(b.gameName, "fr"),
   );
-  const keyPresent = hasKey();
+  const key = await keyStatus();
+  const keyHealthy = key.source !== "none" && key.rejectedAt === null;
+  /* Une clé saisie il y a plus de 24 h est très probablement morte — c'est la
+     durée de vie d'une clé de développement — même si aucun relevé n'est
+     encore tombé sur un 401 pour le confirmer. */
+  const likelyExpired =
+    key.rejectedAt === null &&
+    key.setAt !== null &&
+    now - key.setAt > DEV_KEY_LIFETIME_MS;
   const failing = roster.filter((a) => a.error).length;
 
   return (
@@ -104,8 +114,18 @@ export default async function AdminPage() {
           <div className="mt-8 grid gap-px overflow-hidden rounded-md border border-hair bg-hair sm:grid-cols-4">
             <Tile
               label="Clé Riot"
-              value={keyPresent ? "configurée" : "absente"}
-              tone={keyPresent ? "ok" : "bad"}
+              value={
+                key.rejectedAt !== null
+                  ? "refusée"
+                  : key.source === "admin"
+                    ? likelyExpired
+                      ? "à renouveler"
+                      : "saisie"
+                    : key.source === "env"
+                      ? "environnement"
+                      : "absente"
+              }
+              tone={keyHealthy && !likelyExpired ? "ok" : "bad"}
             />
             <Tile label="Comptes" value={thousands(roster.length)} />
             <Tile
@@ -120,27 +140,19 @@ export default async function AdminPage() {
             />
           </div>
 
-          {!keyPresent && (
-            <div className="mt-4 rounded-md border border-blaze/40 bg-blaze/8 px-4 py-3.5 text-[0.8125rem] leading-relaxed text-ink-2">
-              <strong className="font-semibold text-blaze">
-                Aucune clé Riot.
-              </strong>{" "}
-              Le classement affiche des données de démonstration. Pour brancher
-              les vrais comptes : prendre une clé <em>personnelle</em> sur{" "}
-              <a
-                href="https://developer.riotgames.com"
-                target="_blank"
-                rel="noreferrer noopener"
-                className="text-acid underline decoration-acid/40 underline-offset-2"
-              >
-                developer.riotgames.com
-              </a>{" "}
-              (« Register Product » → Personal : elle n&apos;expire pas), copier{" "}
-              <code className="num">.env.example</code> vers{" "}
-              <code className="num">.env.local</code>, y coller la clé, puis
-              relancer le serveur.
-            </div>
-          )}
+          {/* — La clé juste sous l'état : tant qu'elle n'est pas personnelle,
+                c'est le geste du matin, il doit tomber sous la main. — */}
+          <div className="mt-4">
+            <RiotKeyForm
+              source={key.source}
+              masked={key.masked}
+              ageLabel={key.setAt !== null ? agoLabel(key.setAt, now) : null}
+              rejectedLabel={
+                key.rejectedAt !== null ? agoLabel(key.rejectedAt, now) : null
+              }
+              likelyExpired={likelyExpired}
+            />
+          </div>
 
           {/* — Ajout — */}
           <section className="mt-10 rounded-md border border-hair bg-panel p-5">

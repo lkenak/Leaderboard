@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { after, connection } from "next/server";
 import { buildAllSnapshots } from "@/lib/mock";
 import { buildSnapshots } from "@/lib/riot/snapshot";
-import { hasKey, syncIfStale } from "@/lib/riot/refresh";
+import { syncIfStale } from "@/lib/riot/refresh";
+import { keyStatus } from "@/lib/riot/key";
 import { read } from "@/lib/store";
-import { clockTime } from "@/lib/format";
+import { agoLabel, clockTime } from "@/lib/format";
 import { reportedNow } from "@/lib/now";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
@@ -28,7 +29,8 @@ export default async function RankingPage() {
 
   const now = reportedNow();
   const store = await read();
-  const live = hasKey() && store.roster.length > 0;
+  const key = await keyStatus();
+  const live = key.source !== "none" && store.roster.length > 0;
 
   let snapshots: Record<string, RankingSnapshot>;
   let banner: React.ReactNode = null;
@@ -42,7 +44,24 @@ export default async function RankingPage() {
        empêche plusieurs visiteurs de déclencher autant de synchronisations. */
     after(syncIfStale);
 
-    if (built.meta.lastSync === null) {
+    /* La clé refusée passe avant tout le reste : les rangs affichés sont ceux
+       du dernier relevé réussi, et rien ne bougera avant qu'une clé neuve soit
+       collée. Le dire tout de suite évite de chercher la panne ailleurs. */
+    if (key.rejectedAt !== null) {
+      banner = (
+        <StatusBanner
+          tone="warn"
+          title="Clé Riot expirée."
+          action={{ href: "/admin", label: "Coller une clé" }}
+        >
+          {built.meta.lastSync !== null
+            ? `Le classement est figé au dernier relevé (${agoLabel(built.meta.lastSync, now)}).`
+            : "Aucun relevé n'a encore abouti."}{" "}
+          Une clé de développement meurt 24 h après sa génération : en reprendre
+          une sur le portail Riot, puis la coller depuis le plateau.
+        </StatusBanner>
+      );
+    } else if (built.meta.lastSync === null) {
       banner = (
         <StatusBanner
           tone="info"
@@ -77,7 +96,7 @@ export default async function RankingPage() {
         title="Données de démonstration."
         action={{ href: "/admin", label: "Ajouter des comptes" }}
       >
-        {hasKey()
+        {key.source !== "none"
           ? "Aucun compte n'est encore suivi : le tableau montre un plateau fictif."
           : "Aucune clé Riot n'est configurée : le tableau montre un plateau fictif."}
       </StatusBanner>

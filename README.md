@@ -21,10 +21,17 @@ npm run champions:sync # régénère la table des champions après un patch
    *Register Product* → **Personal**. La clé de développement obtenue en deux
    clics **expire toutes les 24 h** ; la personnelle, non — et elle s'obtient
    sans vérification, ce qui correspond exactement à un site privé.
-2. `cp .env.example .env.local` et y coller la clé.
-   `.env*` est ignoré par git : **la clé ne doit jamais être commitée**, ce
-   dépôt est public.
-3. `npm run riot:check` pour vérifier qu'elle répond.
+2. La poser quelque part :
+   - `cp .env.example .env.local` et y coller la clé — la bonne place pour une
+     clé personnelle, qu'on ne touchera plus ;
+   - ou la coller **depuis `/admin`**, dans le champ « Coller une clé » — la
+     bonne place pour une clé de développement, puisqu'elle se renouvelle
+     chaque jour sans éditeur ni redémarrage. Elle est vérifiée auprès de Riot
+     à la saisie et prime sur `RIOT_API_KEY`.
+
+   `.env*` est ignoré par git, et la clé saisie à l'écran vit sous `.data/`,
+   ignoré aussi : **la clé ne doit jamais être commitée**, ce dépôt est public.
+3. `npm run riot:check` pour vérifier une clé placée dans `.env.local`.
 4. `npm run dev`, puis **`/admin`** : coller les Riot ID (`Pseudo#TAG`), choisir
    la région et la sélection. Rang, icône, poste, historique et état « en
    partie » sont résolus automatiquement.
@@ -37,10 +44,12 @@ d'API : **[`lib/riot/README.md`](lib/riot/README.md)**.
 
 ## Ce qui est là
 
-**`/admin`** : le plateau suivi. Un champ pour coller un Riot ID, la liste des
-comptes avec leur rang relevé, le nombre de relevés et de parties connues, la
-bascule entre sélections, le retrait, et l'état du branchement (clé, erreurs,
-date du dernier relevé). Protégée par `ADMIN_PASSWORD` ; sans mot de passe
+**`/admin`** : le plateau suivi. Un champ pour coller la clé Riot (vérifiée à
+la saisie, masquée ensuite, avec l'âge de la clé et un avertissement dès que
+Riot la refuse), un champ pour coller un Riot ID, la liste des comptes avec
+leur rang relevé, le nombre de relevés et de parties connues, la bascule entre
+sélections, le retrait, et l'état du branchement (clé, erreurs, date du dernier
+relevé). Protégée par `ADMIN_PASSWORD` ; sans mot de passe
 défini, la page n'est ouverte qu'en développement local.
 
 **`/ranking`** : en-tête avec le leader du jour, faits marquants des 24 h,
@@ -126,7 +135,7 @@ classements) plutôt que rempli au hasard.
 
 | Variable | Rôle |
 | --- | --- |
-| `RIOT_API_KEY` | clé personnelle Riot. Absente → mode démonstration. |
+| `RIOT_API_KEY` | clé Riot. Facultative : une clé collée depuis `/admin` prime. Aucune des deux → mode démonstration. |
 | `ADMIN_PASSWORD` | ouvre `/admin`. Absente → page fermée en production. |
 | `REFRESH_SECRET` | protège `POST /api/refresh`. Absente → route fermée en production. |
 | `REFRESH_INTERVAL_MS` | âge au-delà duquel une visite déclenche un relevé (5 min par défaut). |
