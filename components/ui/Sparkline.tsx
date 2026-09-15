@@ -18,7 +18,25 @@ export function Sparkline({
   className?: string;
   strokeWidth?: number;
 }) {
-  if (values.length < 2) return <div style={{ width, height }} />;
+  /* Une courbe demande deux points. En dessous, la cellule affichait un vide
+     absolu — impossible de distinguer « pas encore de série » d'un défaut
+     d'affichage. Le même glyphe d'attente que la colonne 24 h (DESIGN.md § 9),
+     avec la raison au survol. */
+  if (values.length < 2) {
+    return (
+      <div
+        className="num grid place-items-center text-[0.625rem] text-ink-4"
+        style={{ width, height }}
+        title={
+          values.length === 0
+            ? "Aucun relevé de LP pour l'instant"
+            : "Pas encore de courbe : il faut deux relevés de LP, et le suivi vient de commencer"
+        }
+      >
+        ···
+      </div>
+    );
+  }
 
   const min = Math.min(...values);
   const max = Math.max(...values);

@@ -87,6 +87,22 @@ export default async function RankingPage() {
           {built.meta.excluded.length > 3 && " …"}
         </StatusBanner>
       );
+    } else if (warmingUp(snapshots)) {
+      /* Le bandeau « premier relevé » disparaissait dès que `lastSync` était
+         renseigné, c'est-à-dire juste au moment où l'on découvre des colonnes
+         24 h et courbe vides sans savoir pourquoi. Or un relevé réussi ne suffit
+         pas : un gain de LP est un différentiel, il faut deux relevés encadrant
+         une partie. L'explication reste donc affichée tant qu'aucune variation
+         n'est mesurable. */
+      banner = (
+        <StatusBanner tone="info" title="Suivi en cours de constitution.">
+          Les rangs et les bilans sont à jour, mais les colonnes <em>24 h</em> et{" "}
+          <em>courbe</em> attendent un second relevé : un gain de LP se mesure
+          entre deux relevés, et l&apos;API Riot ne les fournit pas partie par
+          partie. Elles se rempliront à partir de la prochaine partie classée.
+          Les parties antérieures au premier relevé resteront sans LP.
+        </StatusBanner>
+      );
     }
   } else {
     snapshots = buildAllSnapshots(now);
@@ -122,4 +138,22 @@ export default async function RankingPage() {
       <Footer updatedLabel={clockTime(now)} />
     </>
   );
+}
+
+/**
+ * Le suivi est « en constitution » quand des parties ont été jouées mais
+ * qu'aucune variation de LP n'est encore mesurable, faute d'un second relevé.
+ *
+ * On le déduit des snapshots plutôt que du store : c'est exactement ce que le
+ * lecteur a sous les yeux — une colonne 24 h et une courbe vides. La condition
+ * exige qu'il y ait eu de l'activité, sinon un plateau simplement inactif
+ * déclencherait le bandeau sans rien avoir à expliquer.
+ */
+function warmingUp(snapshots: Record<string, RankingSnapshot>): boolean {
+  const entries = Object.values(snapshots).flatMap((s) => s.entries);
+  if (entries.length === 0) return false;
+  const played = entries.some((e) => e.session.games > 0);
+  const noLp = entries.every((e) => e.session.lp === null);
+  const noCurve = entries.every((e) => e.lpHistory.length < 2);
+  return played && noLp && noCurve;
 }

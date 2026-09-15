@@ -11,22 +11,43 @@ export function Delta({
   unit = "LP",
   className,
   size = "md",
-  unknownTitle = "Variation inconnue : historique de relevés insuffisant",
+  unknown = "absent",
+  unknownTitle,
 }: {
   /** `null` = la variation n'est pas connue, ce n'est pas la même chose que 0. */
   value: number | null;
   unit?: string | null;
   className?: string;
   size?: "sm" | "md" | "lg";
+  /**
+   * Deux absences différentes, deux glyphes (DESIGN.md § 9) :
+   *
+   * - `absent` — il ne s'est rien passé, il n'y a rien à mesurer : `—`.
+   * - `pending` — il s'est passé quelque chose, mais la mesure n'est pas encore
+   *   possible : `···`. C'est le cas d'un compte qui a joué dans les dernières
+   *   24 h alors qu'un seul relevé de LP existe : un gain de LP est un
+   *   différentiel, il faut deux relevés encadrant la partie.
+   *
+   * Les deux affichaient `—`, donc « aucune partie » et « pas encore
+   * mesurable » étaient indistinguables, et la seule explication vivait dans
+   * une infobulle.
+   */
+  unknown?: "absent" | "pending";
   unknownTitle?: string;
 }) {
   if (value === null) {
+    const pending = unknown === "pending";
     return (
       <span
         className={cn("num text-num text-ink-4", className)}
-        title={unknownTitle}
+        title={
+          unknownTitle ??
+          (pending
+            ? "Pas encore mesurable : un gain de LP se calcule entre deux relevés, et le suivi vient de commencer"
+            : "Aucune variation à afficher")
+        }
       >
-        —
+        {pending ? "···" : "—"}
       </span>
     );
   }

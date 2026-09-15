@@ -272,9 +272,14 @@ export function LadderRow({
           <span className="flex items-center gap-3">
             <FormStrip form={entry.form} />
             {entry.session.games > 0 ? (
-              <Delta value={entry.session.lp} />
+              <Delta value={entry.session.lp} unknown="pending" />
             ) : (
-              <span className="num text-[0.6875rem] text-ink-4">—</span>
+              <span
+                className="num text-[0.6875rem] text-ink-4"
+                title="Aucune partie depuis 24 h"
+              >
+                —
+              </span>
             )}
           </span>
         </div>

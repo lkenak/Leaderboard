@@ -175,7 +175,27 @@ et l'**action** qui la lève :
 
 « Aucune donnée » tout court est un défaut. Un chiffre inventé, un faux nom
 plausible dans un champ, un fait du jour calculé sur zéro partie : défauts
-aussi. Une valeur qu'on n'a pas s'écrit `—`, et `—` n'est pas `0`.
+aussi.
+
+**Trois valeurs non renseignées, trois écritures.** `0` est une mesure, pas une
+absence — et deux absences de nature différente ne s'écrivent pas pareil :
+
+| Écriture | Sens |
+| --- | --- |
+| `0`, `+0` | mesuré, et le résultat est nul |
+| `—` | il ne s'est rien passé : rien à mesurer |
+| `···` | il s'est passé quelque chose, mais la mesure n'est pas encore possible |
+
+Le cas qui impose `···` : un gain de LP est un **différentiel**. L'API Riot ne
+fournit pas les LP partie par partie, seulement le rang à l'instant de l'appel,
+donc une variation se calcule en encadrant la partie par deux relevés. Un
+compte qui vient d'être ajouté a donc un bilan de victoires immédiat mais
+aucune variation de LP, et ses parties antérieures au premier relevé n'en
+auront jamais. Écrire `—` dans ce cas laisse croire à une panne de collecte.
+
+Quand un `···` apparaît, la page doit aussi dire pourquoi à l'échelle du
+bandeau : une infobulle n'est pas une explication, elle demande de savoir qu'il
+faut survoler.
 
 ## 10. Ce qu'on ne fait pas
 

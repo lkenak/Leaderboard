@@ -133,7 +133,9 @@ export function SessionCell({ entry }: { entry: RankingEntry }) {
           : undefined
       }
     >
-      <Delta value={entry.session.lp} unit={null} />
+      {/* On n'arrive ici que si des parties ont été jouées, donc un LP absent
+          est une mesure en attente, pas une absence d'activité. */}
+      <Delta value={entry.session.lp} unit={null} unknown="pending" />
       <span className="num text-[0.625rem] text-ink-4 tabular-nums">
         {entry.session.wins}V·{entry.session.losses}D
       </span>

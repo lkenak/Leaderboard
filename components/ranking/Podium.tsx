@@ -101,7 +101,10 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
               </span>
               <span className="num text-[1rem] font-medium text-ink-3">LP</span>
               <span className="ml-auto self-center">
-                <Delta value={entry.session.lp} />
+                <Delta
+                  value={entry.session.lp}
+                  unknown={entry.session.games > 0 ? "pending" : "absent"}
+                />
               </span>
             </div>
             <p className="mt-1.5 text-[0.75rem] text-ink-3">
