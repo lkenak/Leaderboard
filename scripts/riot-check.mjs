@@ -35,9 +35,15 @@ async function call(url, label) {
   const limit = res.headers.get("x-app-rate-limit");
   const count = res.headers.get("x-app-rate-limit-count");
   if (!res.ok) {
-    console.error(`✗ ${label} → HTTP ${res.status}`);
-    if (res.status === 401 || res.status === 403) {
-      console.error("  Clé refusée : invalide, expirée, ou ne couvrant pas cet endpoint.");
+    const detail = await res.json().then((b) => b?.status?.message).catch(() => null);
+    console.error(`✗ ${label} → HTTP ${res.status}${detail ? ` · ${detail}` : ""}`);
+    if (detail === "Unknown apikey") {
+      console.error("  Riot ne connaît pas cette clé. Deux causes, dans cet ordre :");
+      console.error("   1. clé de DÉVELOPPEMENT expirée — elle ne vit que 24 h ;");
+      console.error("   2. clé régénérée sur le portail depuis la copie — l'ancienne meurt aussitôt.");
+      console.error("  Reprendre la clé sur https://developer.riotgames.com (bouton REGENERATE API KEY).");
+    } else if (res.status === 401 || res.status === 403) {
+      console.error("  Clé refusée : invalide, ou ne couvrant pas cet endpoint.");
     }
     if (res.status === 429) console.error("  Quota dépassé, réessayer dans deux minutes.");
     return null;

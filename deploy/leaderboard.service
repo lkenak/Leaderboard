@@ -1,0 +1,37 @@
+# /etc/systemd/system/leaderboard.service
+#
+#   sudo systemctl enable --now leaderboard
+#   sudo journalctl -u leaderboard -f
+#
+[Unit]
+Description=SOLOQ/LADDER — classement SoloQ
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leaderboard
+Group=leaderboard
+WorkingDirectory=/srv/leaderboard/current
+# La clé Riot et les mots de passe vivent ici, en 0600, root:root — hors du
+# dépôt et hors de portée de l'utilisateur qui fait tourner le service.
+EnvironmentFile=/etc/leaderboard.env
+# La sortie `standalone` de Next produit un server.js autonome.
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+
+# — Durcissement : le service n'écrit que là où il doit écrire —
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+# L'historique de LP est la seule donnée irremplaçable du système : il vit hors
+# du dossier de déploiement, pour survivre à chaque mise à jour.
+ReadWritePaths=/var/lib/leaderboard
+
+[Install]
+WantedBy=multi-user.target

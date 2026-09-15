@@ -230,7 +230,12 @@ export async function buildSnapshots(now: number): Promise<{
       kda: kdaOf(totals.k, totals.d, totals.a),
       champions: championsOf(window),
       lpHistory: lpCurve(samples),
-      peakAbsoluteLp: samples.reduce((m, s) => Math.max(m, s.absoluteLp), 0),
+      // Le pic persisté fait autorité ; les relevés ne servent que de repli
+      // pour un compte suivi avant l'introduction du champ.
+      peakAbsoluteLp: Math.max(
+        account.peakAbsoluteLp ?? 0,
+        samples.reduce((m, s) => Math.max(m, s.absoluteLp), 0),
+      ),
       live: data.live[account.puuid] ?? null,
       recentGames: allGames.slice(0, 12),
       lastGameAt: allGames[0]?.endedAt ?? null,

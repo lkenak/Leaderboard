@@ -127,10 +127,24 @@ async function get<T>(
 
     const path = new URL(url).pathname;
     if (res.status === 401 || res.status === 403) {
+      /* Riot dit précisément ce qui cloche dans le corps de la réponse, et la
+         nuance compte : « Unknown apikey » signifie que la clé n'existe pas
+         côté Riot — clé de développement expirée ou régénérée depuis la copie —
+         alors qu'un « Forbidden » sur un seul endpoint pointe une clé valide
+         mais sans droit dessus. Répéter son message évite de chercher la panne
+         du mauvais côté. */
+      const detail = await res
+        .json()
+        .then((body: { status?: { message?: string } }) => body?.status?.message)
+        .catch(() => undefined);
+      const hint =
+        detail === "Unknown apikey"
+          ? "Riot ne connaît pas cette clé : une clé de développement expire 24 h après son émission, et régénérer la clé sur le portail invalide la précédente. En reprendre une sur developer.riotgames.com."
+          : "Vérifier la clé sur developer.riotgames.com.";
       throw new RiotError(
         res.status,
         path,
-        "Clé Riot refusée (401/403) : elle est invalide, expirée — une clé de développement meurt toutes les 24 h — ou ne couvre pas cet endpoint.",
+        `Clé Riot refusée (${res.status}${detail ? ` · ${detail}` : ""}). ${hint}`,
       );
     }
     throw new RiotError(res.status, path);
