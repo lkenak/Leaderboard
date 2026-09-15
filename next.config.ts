@@ -10,14 +10,13 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   /**
-   * Le traçage de Next suit les fichiers réellement ouverts au moment du build
-   * et embarque `.data/store.json` dans la sortie, parce que `lib/store.ts` le
-   * lit. Conséquence si on ne l'exclut pas : chaque déploiement emporte le
-   * fichier de la machine de build et écrase l'historique de LP du serveur —
-   * silencieusement, et sur la seule donnée que rien ne peut reconstruire.
-   *
-   * `LADDER_DATA_DIR` met déjà l'historique hors du dossier de déploiement ;
-   * cette exclusion évite en plus d'expédier une copie périmée et trompeuse.
+   * `LADDER_DATA_DIR` (par défaut `.data/`) contient `ladder.sqlite` — la
+   * seule donnée que rien ne peut reconstruire (l'historique de LP). Le
+   * traçage de Next ne devrait pas l'ouvrir (lu via `better-sqlite3` à
+   * l'exécution, jamais au build), mais l'exclure explicitement évite qu'un
+   * futur changement n'embarque silencieusement une copie périmée de la base
+   * dans la sortie standalone et n'écrase celle du serveur au déploiement
+   * suivant.
    */
   outputFileTracingExcludes: {
     "*": [".data/**"],
