@@ -18,7 +18,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 PORT="${PORT:-3000}"
-HOST=127.0.0.1
+BIND="${HOST:-127.0.0.1}"
+LOCAL=127.0.0.1
 STANDALONE="$ROOT/.next/standalone"
 STAMP="$STANDALONE/.serve-stamp"
 RUNDIR="$(mktemp -d -t leaderboard-serve-XXXXXX)"
@@ -98,7 +99,7 @@ mkdir -p "$LADDER_DATA_DIR"
 
 export NODE_ENV=production
 export TZ="${TZ:-Europe/Paris}"
-export PORT HOSTNAME="$HOST"
+export PORT HOSTNAME="$BIND"
 # Le serveur et le tunnel sont locaux : jamais via le proxy d'entreprise.
 NO_PROXY="127.0.0.1,localhost,${no_proxy:-}"
 no_proxy="$NO_PROXY"
@@ -128,38 +129,6 @@ else
 fi
 
 # ----------------------------------------------------------------- serveur ---
-# Un serveur d'une session précédente qui tient encore le port ferait passer
-# le health check ci-dessous — on servirait alors un build périmé, avec les
-# anciens secrets, sans le moindre message. Vérifié plutôt que supposé.
-holder="$(ss -ltnp 2>/dev/null | awk -v p=":$PORT\$" '$4 ~ p {print $4, $NF; exit}')"
-if [ -n "$holder" ]; then
-	die "le port $PORT est déjà occupé par : $holder
-  Un serveur d'une session précédente tourne probablement encore.
-  L'arrêter, ou relancer avec  PORT=3001 ./deploy/serve.sh"
-fi
-
-step "démarrage du serveur sur http://$HOST:$PORT"
-(cd "$STANDALONE" && exec node server.js) >"$RUNDIR/server.log" 2>&1 &
-PIDS+=("$!")
-server_pid="${PIDS[-1]}"
-
-for i in $(seq 1 60); do
-	if ! kill -0 "$server_pid" 2>/dev/null; then
-		sed 's/^/    /' "$RUNDIR/server.log" >&2
-		die "le serveur s'est arrêté au démarrage"
-	fi
-	code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://$HOST:$PORT/" 2>/dev/null || true)"
-	case "$code" in 200 | 3??) break ;; esac
-	[ "$i" -eq 60 ] && {
-		sed 's/^/    /' "$RUNDIR/server.log" >&2
-		die "pas de réponse après 60 s"
-	}
-	sleep 1
-done
-printf '    %s✓%s serveur prêt\n' "$GRN" "$R"
-
-# ------------------------------------------------------------------ tunnel ---
-public_url=""
 if [ "$WITH_TUNNEL" -eq 1 ] && [ -n "${HTTPS_PROXY:-}${HTTP_PROXY:-}" ]; then
 	# Mesuré derrière un proxy à inspection TLS : le CONNECT vers le port 7844
 	# de l'edge Cloudflare est refusé en 403, et cloudflared ignore HTTPS_PROXY
@@ -178,6 +147,51 @@ if [ "$WITH_TUNNEL" -eq 1 ]; then
 	fi
 fi
 
+# Écouter sur la boucle locale, toujours, et par défaut.
+#
+# Avec tunnel, c'est suffisant : cloudflared s'y connecte depuis la même
+# machine. Sans tunnel, c'est suffisant aussi — vérifié sous WSL en
+# networkingMode=Mirrored, où Windows et la VM partagent localhost : le
+# navigateur Windows atteint http://localhost:3000 sans rien de plus.
+#
+# Ne pas écouter sur 0.0.0.0 « au cas où » : en mode Mirrored cela revient à
+# écouter sur l'interface réseau réelle de la machine, donc à publier le site
+# sur le réseau local. `HOST=0.0.0.0` reste possible, mais explicitement, quand
+# on veut vraiment que les autres machines du réseau y accèdent.
+
+# Un serveur d'une session précédente qui tient encore le port ferait passer
+# le health check ci-dessous — on servirait alors un build périmé, avec les
+# anciens secrets, sans le moindre message. Vérifié plutôt que supposé.
+holder="$(ss -ltnp 2>/dev/null | awk -v p=":$PORT\$" '$4 ~ p {print $4, $NF; exit}')"
+if [ -n "$holder" ]; then
+	die "le port $PORT est déjà occupé par : $holder
+  Un serveur d'une session précédente tourne probablement encore.
+  L'arrêter, ou relancer avec  PORT=3001 ./deploy/serve.sh"
+fi
+
+step "démarrage du serveur (écoute sur $BIND:$PORT)"
+(cd "$STANDALONE" && exec node server.js) >"$RUNDIR/server.log" 2>&1 &
+PIDS+=("$!")
+server_pid="${PIDS[-1]}"
+
+for i in $(seq 1 60); do
+	if ! kill -0 "$server_pid" 2>/dev/null; then
+		sed 's/^/    /' "$RUNDIR/server.log" >&2
+		die "le serveur s'est arrêté au démarrage"
+	fi
+	code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://$LOCAL:$PORT/" 2>/dev/null || true)"
+	case "$code" in 200 | 3??) break ;; esac
+	[ "$i" -eq 60 ] && {
+		sed 's/^/    /' "$RUNDIR/server.log" >&2
+		die "pas de réponse après 60 s"
+	}
+	sleep 1
+done
+printf '    %s✓%s serveur prêt\n' "$GRN" "$R"
+
+# ------------------------------------------------------------------ tunnel ---
+public_url=""
+
 if [ "$WITH_TUNNEL" -eq 1 ]; then
 	# Un « quick tunnel » : aucun compte Cloudflare, aucun port à ouvrir, aucune
 	# IP fixe. cloudflared ouvre une connexion SORTANTE vers l'edge Cloudflare,
@@ -188,7 +202,7 @@ if [ "$WITH_TUNNEL" -eq 1 ]; then
 	for proto in quic http2; do
 		step "ouverture du tunnel public ${DIM}($proto)${R}"
 		cloudflared tunnel --no-autoupdate --protocol "$proto" \
-			--url "http://$HOST:$PORT" >"$RUNDIR/tunnel-$proto.log" 2>&1 &
+			--url "http://$LOCAL:$PORT" >"$RUNDIR/tunnel-$proto.log" 2>&1 &
 		PIDS+=("$!")
 		tunnel_pid="${PIDS[-1]}"
 
@@ -208,7 +222,7 @@ if [ "$WITH_TUNNEL" -eq 1 ]; then
 
 	if [ -z "$public_url" ]; then
 		warn "tunnel impossible — ce réseau bloque cloudflared."
-		warn "Le site reste accessible en local sur http://$HOST:$PORT"
+		warn "Le site reste accessible en local sur http://$LOCAL:$PORT"
 		printf '%s    journaux : %s%s\n' "$DIM" "$RUNDIR" "$R"
 	fi
 fi
@@ -225,7 +239,7 @@ if [ -n "${REFRESH_SECRET:-}" ]; then
 		while sleep "$interval"; do
 			curl --fail --silent --show-error --max-time 300 -X POST \
 				-H "Authorization: Bearer $REFRESH_SECRET" \
-				"http://$HOST:$PORT/api/refresh" >/dev/null 2>&1 || true
+				"http://$LOCAL:$PORT/api/refresh" >/dev/null 2>&1 || true
 		done
 	) &
 	PIDS+=("$!")
@@ -240,7 +254,7 @@ if [ -n "$public_url" ]; then
 	printf '   %s%s%s\n' "$B$GRN" "$public_url" "$R"
 	printf '   %sà partager — valable le temps de cette session%s\n' "$DIM" "$R"
 else
-	printf '   %shttp://%s:%s%s\n' "$B$GRN" "$HOST" "$PORT" "$R"
+	printf '   %shttp://localhost:%s%s\n' "$B$GRN" "$PORT" "$R"
 	printf '   %saccessible depuis ce poste uniquement%s\n' "$DIM" "$R"
 fi
 echo
