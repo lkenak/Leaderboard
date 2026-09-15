@@ -41,11 +41,6 @@ export interface RankSnapshot {
   losses: number;
 }
 
-export interface StreamerHandle {
-  platform: "twitch" | "kick" | "youtube";
-  login: string;
-}
-
 export interface ChampionStat {
   championId: string; // clé Data Dragon, ex. « Aatrox »
   championName: string; // libellé lisible, ex. « Aatrox »
@@ -96,17 +91,13 @@ export interface Player {
   summonerLevel: number;
   /** Nom d'affichage court, quand le pseudo Riot n'est pas le nom public. */
   displayName?: string;
-  team?: { id: string; name: string; tag: string };
   mainRole: Role;
-  streamer?: StreamerHandle;
   country?: string;
 }
 
 /** Une ligne de classement : joueur + rang + tout ce qui en est dérivé. */
 export interface RankingEntry {
   player: Player;
-  /** Sélection d'origine — sert au rail de couleur dans la vue fusionnée. */
-  bracket: "high-elo" | "low-elo";
   rank: RankSnapshot;
   /** LP absolus, tous paliers confondus — la clé de tri du classement. */
   absoluteLp: number;
@@ -149,8 +140,6 @@ export interface RankingEntry {
 }
 
 export interface RankingSnapshot {
-  /** Identifiant de la sélection (ex. « high-elo »). */
-  bracketId: string;
   splitName: string;
   /**
    * Fin du split, en ms. `null` quand elle n'est pas renseignée
@@ -159,10 +148,5 @@ export interface RankingSnapshot {
    */
   splitEndsAt: number | null;
   updatedAt: number;
-  /**
-   * LP exigés par la dernière place de chaque palier apex. `null` quand la
-   * coupe n'a pas pu être relevée — le widget est alors masqué.
-   */
-  cutoff: { challenger: number; grandmaster: number } | null;
   entries: RankingEntry[];
 }

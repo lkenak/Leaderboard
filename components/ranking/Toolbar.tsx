@@ -22,16 +22,7 @@ const MOBILE_SORTS: Array<{ key: SortKey; label: string }> = [
   { key: "name", label: "Nom" },
 ];
 
-export type Bracket = "all" | "high-elo" | "low-elo";
-
-const BRACKETS: Array<{ key: Bracket; label: string; accent: string }> = [
-  { key: "all", label: "Tous", accent: "var(--color-ink)" },
-  { key: "high-elo", label: "High elo", accent: "var(--color-acid)" },
-  { key: "low-elo", label: "Low elo", accent: "var(--color-sky)" },
-];
-
 export interface ToolbarState {
-  bracket: Bracket;
   query: string;
   roles: Role[];
   country: string | null;
@@ -75,39 +66,14 @@ export function Toolbar({
 
   return (
     <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-      {/* ── Groupe de gauche : la sélection et la recherche ── */}
+      {/* ── Groupe de gauche : la recherche ── */}
       <div className="flex flex-wrap items-center gap-2.5">
-        <div
-          role="tablist"
-          aria-label="Sélection"
-          className="inline-flex items-stretch gap-1"
-        >
-          {BRACKETS.map((b) => {
-            const active = state.bracket === b.key;
-            return (
-              <button
-                key={b.key}
-                role="tab"
-                aria-selected={active}
-                onClick={() => onChange({ bracket: b.key })}
-                className="skewbox num px-4 py-2 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase transition-colors duration-150"
-                style={{
-                  background: active ? b.accent : "rgba(255,255,255,0.05)",
-                  color: active ? "var(--color-acid-ink)" : "var(--color-ink-3)",
-                }}
-              >
-                {b.label}
-              </button>
-            );
-          })}
-        </div>
-
         <div className="relative w-full sm:w-[260px]">
           <input
             type="search"
             value={state.query}
             onChange={(e) => onChange({ query: e.target.value })}
-            placeholder="Rechercher un joueur, une équipe…"
+            placeholder="Rechercher un joueur…"
             aria-label="Rechercher un joueur"
             // Pas de `focus:outline-none` : le champ garde l'anneau de focus du
             // site, le changement de bordure ne fait que le renforcer.

@@ -71,21 +71,6 @@ export function AddAccountForm({
           </select>
         </div>
 
-        <div className="sm:w-36">
-          <label htmlFor="bracket" className="label">
-            Sélection
-          </label>
-          <select
-            id="bracket"
-            name="bracket"
-            defaultValue="high-elo"
-            className="mt-2 h-11 w-full rounded-sm border border-hair bg-panel-3/60 px-2.5 text-[0.875rem] text-ink transition-colors duration-150 hover:border-hair-2 focus:border-acid/50"
-          >
-            <option value="high-elo">High elo</option>
-            <option value="low-elo">Low elo</option>
-          </select>
-        </div>
-
         <div className="flex items-end">
           <button
             type="submit"
@@ -118,12 +103,6 @@ export function AddAccountForm({
               className="input"
             />
           </Field>
-          <Field label="Équipe" htmlFor="teamName">
-            <input id="teamName" name="teamName" placeholder="Voltaic" className="input" />
-          </Field>
-          <Field label="Tag d'équipe" htmlFor="teamTag">
-            <input id="teamTag" name="teamTag" maxLength={4} placeholder="VLT" className="input" />
-          </Field>
           <Field label="Poste forcé" htmlFor="role">
             <select id="role" name="role" defaultValue="" className="input">
               <option value="">Déduit des parties</option>
@@ -133,17 +112,6 @@ export function AddAccountForm({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field label="Plateforme de stream" htmlFor="streamPlatform">
-            <select id="streamPlatform" name="streamPlatform" defaultValue="" className="input">
-              <option value="">Aucune</option>
-              <option value="twitch">Twitch</option>
-              <option value="kick">Kick</option>
-              <option value="youtube">YouTube</option>
-            </select>
-          </Field>
-          <Field label="Identifiant de chaîne" htmlFor="streamLogin">
-            <input id="streamLogin" name="streamLogin" placeholder="pseudo" className="input" />
           </Field>
         </div>
       )}

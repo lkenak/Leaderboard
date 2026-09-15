@@ -1,63 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { crestSrc } from "@/lib/lol";
 import { useClock } from "@/lib/clock";
-
-/**
- * Coupe apex : les LP exigés par la dernière place de Challenger et de Grand
- * Maître. C'est l'information que regarde en premier un joueur de haut de
- * ladder, donc elle est en en-tête et pas enterrée dans une infobulle.
- */
-export function CutoffWidget({
-  challenger,
-  grandmaster,
-}: {
-  challenger: number;
-  grandmaster: number;
-}) {
-  return (
-    <div className="inline-flex items-center gap-3.5 rounded-md border border-hair bg-panel/60 px-4 py-2.5 whitespace-nowrap transition-colors duration-300 hover:border-hair-2">
-      <span
-        className="label cursor-help"
-        title="LP demandés en ce moment par la dernière place de Challenger et de Grand Maître sur EUW"
-      >
-        Coupe
-      </span>
-      <span className="h-7 w-px bg-hair" />
-      <CutoffValue tier="challenger" value={challenger} label="Dernier Challenger" />
-      <CutoffValue tier="grandmaster" value={grandmaster} label="Dernier Grand Maître" />
-    </div>
-  );
-}
-
-function CutoffValue({
-  tier,
-  value,
-  label,
-}: {
-  tier: string;
-  value: number;
-  label: string;
-}) {
-  return (
-    <span className="flex items-center gap-1.5" title={label}>
-      <Image
-        src={crestSrc(tier as never)}
-        alt=""
-        width={20}
-        height={20}
-        unoptimized
-        aria-hidden
-        className="size-5 object-contain"
-      />
-      <span className="num text-[1.125rem] leading-none font-semibold text-ink tabular-nums">
-        {value}
-      </span>
-      <span className="num text-[0.625rem] font-medium text-ink-4">LP</span>
-    </span>
-  );
-}
 
 /**
  * Compte à rebours de fin de split. Le rendu serveur utilise l'horodatage qu'il

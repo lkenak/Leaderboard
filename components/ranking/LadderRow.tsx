@@ -12,7 +12,6 @@ import { ChampionIcon } from "@/components/ui/ChampionIcon";
 import { FormStrip } from "@/components/ui/FormStrip";
 import { Sparkline } from "@/components/ui/Sparkline";
 import { Avatar } from "@/components/ui/Avatar";
-import { StreamLink } from "@/components/ui/StreamLink";
 import { Delta } from "@/components/ui/Delta";
 import { StarGlyph } from "./Toolbar";
 import {
@@ -27,8 +26,6 @@ import type { RecordMode } from "./LadderHead";
 
 export function LadderRow({
   entry,
-  showBracketRail,
-  bracketColor,
   recordMode,
   provider,
   favourite,
@@ -39,8 +36,6 @@ export function LadderRow({
   now,
 }: {
   entry: RankingEntry;
-  showBracketRail: boolean;
-  bracketColor: string;
   recordMode: RecordMode;
   provider: StatsProvider;
   favourite: boolean;
@@ -99,22 +94,11 @@ export function LadderRow({
               EN JEU
             </span>
           )}
-          {player.streamer && (
-            <StreamLink streamer={player.streamer} className="-my-1" />
-          )}
         </span>
         <span className="mt-0.5 flex items-center gap-1.5">
           <span className="num truncate text-[0.6875rem] text-ink-4">
             #{player.tagLine}
           </span>
-          {player.team && (
-            <span
-              className="num shrink-0 rounded-[2px] bg-panel-3 px-1 py-px text-[0.5625rem] font-medium tracking-[0.06em] text-ink-3"
-              title={player.team.name}
-            >
-              {player.team.tag}
-            </span>
-          )}
           {entry.lastGameAt !== null && (
             <span
               className="num shrink-0 text-[0.625rem] text-ink-4"
@@ -147,11 +131,6 @@ export function LadderRow({
           last && !expanded && "border-b-0",
           expanded ? "bg-panel-2" : "hover:bg-panel-2/60",
         )}
-        style={
-          showBracketRail
-            ? { boxShadow: `inset 3px 0 0 ${bracketColor}` }
-            : undefined
-        }
       >
         <span className="flex items-center justify-center gap-1">
           <PositionBadge position={entry.position} />
@@ -224,11 +203,6 @@ export function LadderRow({
           last && !expanded && "border-b-0",
           expanded ? "bg-panel-2" : "active:bg-panel-2/60",
         )}
-        style={
-          showBracketRail
-            ? { boxShadow: `inset 3px 0 0 ${bracketColor}` }
-            : undefined
-        }
       >
         <div className="flex items-center gap-2.5">
           <span className="flex shrink-0 flex-col items-center gap-1">

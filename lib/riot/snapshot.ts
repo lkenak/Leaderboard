@@ -3,7 +3,6 @@ import { reposition } from "@/lib/ranking";
 import { winratePct, kda as kdaOf } from "@/lib/format";
 import { listMembers, type LadderMemberRecord } from "@/lib/db/ladders";
 import {
-  getCutoff,
   getLive,
   getPlayer,
   getSyncMeta,
@@ -19,11 +18,10 @@ import type {
   RankingSnapshot,
   Role,
 } from "@/lib/types";
-import { PLATFORM } from "./routing";
 
 /**
- * Projette le contenu de la base sur le modèle que consomment les vues, pour
- * UN ladder donné.
+ * Projette le contenu de la base sur le modèle que consomme la vue, pour UN
+ * ladder donné.
  *
  * Aucun appel réseau ici : la synchronisation écrit, cette fonction lit. C'est
  * ce qui permet à la page de répondre en quelques millisecondes et de rester
@@ -168,7 +166,7 @@ function labelOf(m: LadderMemberRecord): string {
 export function buildLadderSnapshot(
   ladderId: string,
   now: number,
-): { snapshots: Record<string, RankingSnapshot>; meta: SnapshotMeta } {
+): { snapshot: RankingSnapshot; meta: SnapshotMeta } {
   const members = listMembers(ladderId);
   const splitName = process.env.SPLIT_NAME ?? "SoloQ";
   const splitEndsAt = process.env.SPLIT_ENDS_AT
@@ -176,10 +174,7 @@ export function buildLadderSnapshot(
     : null;
 
   const excluded: SnapshotMeta["excluded"] = [];
-  const byBracket: Record<string, Array<Omit<RankingEntry, "position" | "positionDelta">>> = {
-    "high-elo": [],
-    "low-elo": [],
-  };
+  const built: Array<Omit<RankingEntry, "position" | "positionDelta">> = [];
 
   for (const member of members) {
     const label = labelOf(member);
@@ -221,20 +216,11 @@ export function buildLadderSnapshot(
       profileIconId: account.profileIconId ?? 0,
       summonerLevel: account.summonerLevel ?? 0,
       mainRole: member.roleOverride ?? dominantRole(window) ?? "MIDDLE",
-      streamer: member.streamer,
       country: member.country,
-      team: member.teamName
-        ? {
-            id: member.teamTag ?? member.teamName,
-            name: member.teamName,
-            tag: member.teamTag ?? member.teamName.slice(0, 3).toUpperCase(),
-          }
-        : undefined,
     };
 
-    byBracket[member.bracket].push({
+    built.push({
       player,
-      bracket: member.bracket,
       rank,
       absoluteLp: absoluteLp(rank),
       session: sessionOf(samples, allGames, now),
@@ -257,44 +243,22 @@ export function buildLadderSnapshot(
     });
   }
 
-  // Coupe apex : celle de la plateforme la plus représentée dans CE ladder.
-  const platformCount = new Map<string, number>();
-  for (const m of members) {
-    const p = PLATFORM[m.region];
-    platformCount.set(p, (platformCount.get(p) ?? 0) + 1);
-  }
-  const mainPlatform = [...platformCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const rawCutoff = mainPlatform ? getCutoff(mainPlatform) : null;
-  const cutoff = rawCutoff
-    ? { challenger: rawCutoff.challenger, grandmaster: rawCutoff.grandmaster }
-    : null;
-
   const { lastSync, lastSyncError } = getSyncMeta();
-  const snapshots: Record<string, RankingSnapshot> = {};
-  let ranked = 0;
-  for (const bracket of ["high-elo", "low-elo"] as const) {
-    const entries = reposition(
-      byBracket[bracket].map((e) => ({ ...e, position: 0, positionDelta: 0 })),
-    );
-    ranked += entries.length;
-    snapshots[bracket] = {
-      bracketId: bracket,
+  const entries = reposition(built.map((e) => ({ ...e, position: 0, positionDelta: 0 })));
+
+  return {
+    snapshot: {
       splitName,
       splitEndsAt: Number.isNaN(splitEndsAt as number) ? null : splitEndsAt,
       updatedAt: lastSync ?? now,
-      cutoff,
       entries,
-    };
-  }
-
-  return {
-    snapshots,
+    },
     meta: {
       source: "riot",
       lastSync,
       lastSyncError,
       accounts: members.length,
-      ranked,
+      ranked: entries.length,
       excluded,
     },
   };

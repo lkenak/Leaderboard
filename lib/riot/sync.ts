@@ -5,7 +5,7 @@ import {
 } from "@/lib/champions";
 import { absoluteLp } from "@/lib/lol";
 import * as players from "@/lib/db/riot-players";
-import type { GameRecord, LiveGame, Region, Role, Tier } from "@/lib/types";
+import type { GameRecord, LiveGame, Role, Tier } from "@/lib/types";
 import { DIVISIONS, ROLES, TIERS } from "@/lib/types";
 import {
   MissingKeyError,
@@ -19,7 +19,6 @@ import {
   type LeagueEntryDto,
   type MatchDto,
 } from "./client";
-import { PLATFORM, platformHost } from "./routing";
 
 /**
  * Synchronisation de tous les comptes Riot référencés par au moins un ladder
@@ -41,7 +40,6 @@ const RANKED_SOLO_QUEUE_ID = 420;
 /** Un relevé au moins toutes les 30 min, même sans partie : la fenêtre de 24 h
  *  a besoin d'un point d'ancrage à son extrémité. */
 const HEARTBEAT_MS = 30 * 60_000;
-const CUTOFF_TTL_MS = 10 * 60_000;
 const MATCH_PAGE = 20;
 
 export interface SyncReport {
@@ -148,37 +146,6 @@ function dominantRole(games: GameRecord[]): Role | undefined {
   const counts = new Map<Role, number>();
   for (const g of games) counts.set(g.role, (counts.get(g.role) ?? 0) + 1);
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-}
-
-/* ── Coupes apex ──────────────────────────────────────────────────────────── */
-
-async function refreshCutoff(
-  region: Region,
-  existing: players.ApexCutoff | null,
-): Promise<players.ApexCutoff | null> {
-  if (existing && Date.now() - existing.fetchedAt < CUTOFF_TTL_MS) return null;
-
-  const key = process.env.RIOT_API_KEY;
-  if (!key) throw new MissingKeyError();
-
-  /** La liste complète d'un palier apex ; on n'en garde que le LP minimum. */
-  const minLp = async (league: "challengerleagues" | "grandmasterleagues") => {
-    const res = await fetch(
-      `${platformHost(region)}/lol/league/v4/${league}/by-queue/${SOLO_QUEUE}`,
-      { headers: { "X-Riot-Token": key }, cache: "no-store" },
-    );
-    if (!res.ok) return null;
-    const body = (await res.json()) as { entries: Array<{ leaguePoints: number }> };
-    if (!body.entries?.length) return null;
-    return body.entries.reduce((min, e) => Math.min(min, e.leaguePoints), Infinity);
-  };
-
-  const [challenger, grandmaster] = await Promise.all([
-    minLp("challengerleagues"),
-    minLp("grandmasterleagues"),
-  ]);
-  if (challenger === null || grandmaster === null) return null;
-  return { challenger, grandmaster, fetchedAt: Date.now() };
 }
 
 /* ── Le job ───────────────────────────────────────────────────────────────── */
@@ -341,18 +308,6 @@ export async function sync(): Promise<SyncReport> {
       const message = err instanceof Error ? err.message : String(err);
       report.errors.push({ account: label, message });
       players.patchPlayer(id, { lastError: message });
-    }
-  }
-
-  /* 7 — Coupes apex, une fois par plateforme représentée. */
-  const platforms = new Map<string, Region>();
-  for (const a of roster) platforms.set(PLATFORM[a.region], a.region);
-  for (const [platform, region] of platforms) {
-    try {
-      const cutoff = await refreshCutoff(region, players.getCutoff(platform));
-      if (cutoff) players.setCutoff(platform, cutoff);
-    } catch {
-      // Une coupe indisponible masque le widget, elle n'invalide pas la synchro.
     }
   }
 

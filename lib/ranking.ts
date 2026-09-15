@@ -121,13 +121,7 @@ export function matchesFilters(entry: RankingEntry, f: Filters): boolean {
   if (q.length === 0) return true;
 
   const p = entry.player;
-  const haystacks = [
-    p.gameName,
-    `${p.gameName}#${p.tagLine}`,
-    p.team?.name ?? "",
-    p.team?.tag ?? "",
-    p.streamer?.login ?? "",
-  ];
+  const haystacks = [p.gameName, `${p.gameName}#${p.tagLine}`];
   return haystacks.some((h) => h.toLocaleLowerCase("fr").includes(q));
 }
 
@@ -146,13 +140,13 @@ export function countryCounts(
     .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
 }
 
-/* ── Fusion des sélections ────────────────────────────────────────────────── */
+/* ── Places et variations ─────────────────────────────────────────────────── */
 
 /**
- * Recalcule places et variations pour une liste arbitraire d'entrées — utilisée
- * par la vue « Tous », qui fusionne les deux sélections. La variation reste une
- * vraie différence entre deux classements (celui d'aujourd'hui et celui obtenu
- * en retirant les LP des 24 h), et non un champ recopié d'un autre tableau.
+ * Recalcule places et variations pour l'ensemble des membres d'un ladder. La
+ * variation reste une vraie différence entre deux classements (celui
+ * d'aujourd'hui et celui obtenu en retirant les LP des 24 h), et non un champ
+ * recopié d'ailleurs.
  */
 export function reposition(entries: RankingEntry[]): RankingEntry[] {
   const today = [...entries].sort(

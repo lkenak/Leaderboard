@@ -61,7 +61,6 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
                 </p>
                 <p className="num mt-0.5 truncate text-[0.6875rem] text-ink-4">
                   #{entry.player.tagLine}
-                  {entry.player.team ? ` · ${entry.player.team.name}` : ""}
                 </p>
               </div>
             </div>

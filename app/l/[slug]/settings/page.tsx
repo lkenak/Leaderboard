@@ -17,7 +17,6 @@ import { AddAccountForm } from "@/components/settings/AddAccountForm";
 import { SyncButton } from "@/components/settings/SyncButton";
 import {
   addAccountAction,
-  moveBracketAction,
   removeAccountAction,
   retryAccountAction,
   syncNowAction,
@@ -72,8 +71,8 @@ export default async function LadderSettingsPage({
     );
   }
 
-  const members = [...listMembers(ladder.id)].sort(
-    (a, b) => a.bracket.localeCompare(b.bracket) || a.gameName.localeCompare(b.gameName, "fr"),
+  const members = [...listMembers(ladder.id)].sort((a, b) =>
+    a.gameName.localeCompare(b.gameName, "fr"),
   );
   const keyPresent = hasKey();
   const failing = members.filter((m) => m.resolveError).length;
@@ -85,7 +84,6 @@ export default async function LadderSettingsPage({
   const boundAdd = addAccountAction.bind(null, slug);
   const boundSync = syncNowAction.bind(null, slug);
   const boundRemove = removeAccountAction.bind(null, slug);
-  const boundMove = moveBracketAction.bind(null, slug);
   const boundRetry = retryAccountAction.bind(null, slug);
 
   return (
@@ -201,32 +199,11 @@ export default async function LadderSettingsPage({
                           <span>
                             {games} partie{games > 1 ? "s" : ""}
                           </span>
-                          {member.teamName && <span>{member.teamName}</span>}
                         </p>
                         {member.resolveError && (
                           <p className="mt-1.5 text-[0.75rem] text-blaze">{member.resolveError}</p>
                         )}
                       </div>
-
-                      {/* Bascule de sélection : un seul bouton, pas un menu. */}
-                      <form action={boundMove}>
-                        <input type="hidden" name="id" value={member.id} />
-                        <input
-                          type="hidden"
-                          name="bracket"
-                          value={member.bracket === "high-elo" ? "low-elo" : "high-elo"}
-                        />
-                        <button
-                          type="submit"
-                          title="Basculer vers l'autre sélection"
-                          className="num h-8 rounded-sm border border-hair px-2.5 text-[0.625rem] font-semibold tracking-[0.08em] uppercase transition-colors duration-150 hover:border-hair-3"
-                          style={{
-                            color: member.bracket === "high-elo" ? "var(--color-acid)" : "var(--color-sky)",
-                          }}
-                        >
-                          {member.bracket === "high-elo" ? "High elo" : "Low elo"}
-                        </button>
-                      </form>
 
                       {member.resolveError && (
                         <form action={boundRetry}>

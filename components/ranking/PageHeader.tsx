@@ -14,15 +14,16 @@ import type { RankingSnapshot } from "@/lib/types";
  */
 export function PageHeader({
   snapshot,
+  ladderName,
   now,
 }: {
   snapshot: RankingSnapshot;
+  ladderName: string;
   now: number;
 }) {
-  /* Une sélection peut être vide — plateau tout juste créé, comptes non encore
-     résolus, ou tous les joueurs rangés dans l'autre sélection. Le titre et les
-     compteurs restent affichés : c'est ce qui distingue « rien à montrer pour
-     l'instant » d'une page cassée. */
+  /* Un ladder peut être vide — tout juste créé, comptes non encore résolus.
+     Le titre et les compteurs restent affichés : c'est ce qui distingue
+     « rien à montrer pour l'instant » d'une page cassée. */
   const leader = snapshot.entries.at(0);
   const dayGames = snapshot.entries.reduce((a, e) => a + e.session.games, 0);
   const lpTraded = snapshot.entries.reduce(
@@ -50,7 +51,7 @@ export function PageHeader({
               Classement · {snapshot.splitName}
             </p>
             <h1 className="mt-4 text-[2.25rem] leading-[0.98] font-bold tracking-[-0.03em] text-ink md:text-[3.25rem]">
-              {snapshot.bracketId === "high-elo" ? "High elo" : "Low elo"}
+              {ladderName}
               <span className="text-acid">.</span>
             </h1>
             <p className="mt-4 max-w-lg text-[0.9375rem] leading-relaxed text-ink-2">

@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Region, Role, StreamerHandle } from "@/lib/types";
+import type { Region, Role } from "@/lib/types";
 import { getDb } from "./client";
-
-export type Bracket = "high-elo" | "low-elo";
 
 export interface LadderRecord {
   id: string;
@@ -19,11 +17,7 @@ export interface LadderMemberRecord {
   gameName: string;
   tagLine: string;
   puuid: string | null;
-  bracket: Bracket;
   country?: string;
-  teamName?: string;
-  teamTag?: string;
-  streamer?: StreamerHandle;
   roleOverride?: Role;
   addedByUserId: string | null;
   addedAt: number;
@@ -45,12 +39,7 @@ interface MemberRow {
   game_name: string;
   tag_line: string;
   puuid: string | null;
-  bracket: string;
   country: string | null;
-  team_name: string | null;
-  team_tag: string | null;
-  streamer_platform: string | null;
-  streamer_login: string | null;
   role_override: string | null;
   added_by_user_id: string | null;
   added_at: number;
@@ -75,14 +64,7 @@ function memberFromRow(row: MemberRow): LadderMemberRecord {
     gameName: row.game_name,
     tagLine: row.tag_line,
     puuid: row.puuid,
-    bracket: row.bracket as Bracket,
     country: row.country ?? undefined,
-    teamName: row.team_name ?? undefined,
-    teamTag: row.team_tag ?? undefined,
-    streamer:
-      row.streamer_platform && row.streamer_login
-        ? { platform: row.streamer_platform as StreamerHandle["platform"], login: row.streamer_login }
-        : undefined,
     roleOverride: (row.role_override as Role | null) ?? undefined,
     addedByUserId: row.added_by_user_id,
     addedAt: row.added_at,
@@ -102,16 +84,12 @@ function slugify(name: string): string {
 
 /* ── Ladders ──────────────────────────────────────────────────────────────── */
 
-/** Réservés pour des routes fixes (`/l/demo`, vitrine sans clé Riot) — jamais
- *  attribués à un ladder créé par un utilisateur. */
-const RESERVED_SLUGS = new Set(["demo"]);
-
 export function createLadder(input: { name: string; ownerUserId: string }): LadderRecord {
   const db = getDb();
   const base = slugify(input.name);
   let slug = base;
   let n = 2;
-  while (RESERVED_SLUGS.has(slug) || db.prepare("SELECT 1 FROM ladders WHERE slug = ?").get(slug)) {
+  while (db.prepare("SELECT 1 FROM ladders WHERE slug = ?").get(slug)) {
     slug = `${base}-${n++}`;
   }
 
@@ -153,7 +131,6 @@ export function renameLadder(id: string, name: string, keepSlug = false): Ladder
   let slug = base;
   let n = 2;
   while (true) {
-    if (RESERVED_SLUGS.has(slug)) { slug = `${base}-${n++}`; continue; }
     const row = db.prepare<[string], { id: string }>("SELECT id FROM ladders WHERE slug = ?").get(slug);
     if (!row || row.id === id) break;
     slug = `${base}-${n++}`;
@@ -179,11 +156,7 @@ export interface AddMemberInput {
   gameName: string;
   tagLine: string;
   region: Region;
-  bracket: Bracket;
   country?: string;
-  teamName?: string;
-  teamTag?: string;
-  streamer?: StreamerHandle;
   roleOverride?: Role;
 }
 
@@ -217,9 +190,8 @@ export function addMember(
   const result = db
     .prepare(
       `INSERT INTO ladder_members
-         (ladder_id, region, game_name, tag_line, puuid, bracket, country, team_name, team_tag,
-          streamer_platform, streamer_login, role_override, added_by_user_id, added_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (ladder_id, region, game_name, tag_line, puuid, country, role_override, added_by_user_id, added_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       ladderId,
@@ -227,12 +199,7 @@ export function addMember(
       input.gameName,
       input.tagLine,
       known?.puuid ?? null,
-      input.bracket,
       input.country ?? null,
-      input.teamName ?? null,
-      input.teamTag ?? null,
-      input.streamer?.platform ?? null,
-      input.streamer?.login ?? null,
       input.roleOverride ?? null,
       addedByUserId,
       addedAt,
@@ -245,11 +212,7 @@ export function addMember(
     gameName: input.gameName,
     tagLine: input.tagLine,
     puuid: known?.puuid ?? null,
-    bracket: input.bracket,
     country: input.country,
-    teamName: input.teamName,
-    teamTag: input.teamTag,
-    streamer: input.streamer,
     roleOverride: input.roleOverride,
     addedByUserId,
     addedAt,
@@ -273,20 +236,13 @@ export function removeMember(ladderId: string, memberId: number): void {
 export function patchMember(
   ladderId: string,
   memberId: number,
-  patch: Partial<Pick<LadderMemberRecord, "bracket" | "country" | "teamName" | "teamTag" | "streamer" | "roleOverride">>,
+  patch: Partial<Pick<LadderMemberRecord, "country" | "roleOverride">>,
 ): void {
   const db = getDb();
   const sets: string[] = [];
   const values: unknown[] = [];
 
-  if (patch.bracket !== undefined) { sets.push("bracket = ?"); values.push(patch.bracket); }
   if (patch.country !== undefined) { sets.push("country = ?"); values.push(patch.country); }
-  if (patch.teamName !== undefined) { sets.push("team_name = ?"); values.push(patch.teamName); }
-  if (patch.teamTag !== undefined) { sets.push("team_tag = ?"); values.push(patch.teamTag); }
-  if (patch.streamer !== undefined) {
-    sets.push("streamer_platform = ?", "streamer_login = ?");
-    values.push(patch.streamer?.platform ?? null, patch.streamer?.login ?? null);
-  }
   if (patch.roleOverride !== undefined) { sets.push("role_override = ?"); values.push(patch.roleOverride); }
   if (sets.length === 0) return;
 

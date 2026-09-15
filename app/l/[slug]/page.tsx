@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { after, connection } from "next/server";
 import { auth } from "@/lib/auth";
-import { buildAllSnapshots } from "@/lib/mock";
 import { buildLadderSnapshot } from "@/lib/riot/snapshot";
 import { hasKey, syncIfStale } from "@/lib/riot/refresh";
 import { getLadderBySlug } from "@/lib/db/ladders";
@@ -12,7 +11,6 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { StatusBanner } from "@/components/site/StatusBanner";
 import { Ladder } from "@/components/ranking/Ladder";
-import type { RankingSnapshot } from "@/lib/types";
 
 export async function generateMetadata({
   params,
@@ -20,7 +18,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const ladder = slug === "demo" ? { name: "Démonstration" } : getLadderBySlug(slug);
+  const ladder = getLadderBySlug(slug);
   return {
     title: ladder ? ladder.name : "Ladder introuvable",
     description:
@@ -42,50 +40,17 @@ export default async function LadderPage({
   const { slug } = await params;
   const now = reportedNow();
 
-  // `demo` est réservé (voir lib/db/ladders.ts) : vitrine fixe pour visiter le
-  // site sans avoir encore créé de ladder, ou sans clé Riot configurée.
-  if (slug === "demo") {
-    const session = await auth();
-    const snapshots = buildAllSnapshots(now);
-    const liveCount = Object.values(snapshots).reduce(
-      (a, s) => a + s.entries.filter((e) => e.live).length,
-      0,
-    );
-    return (
-      <>
-        <Header
-          liveCount={liveCount}
-          ladderHref="/l/demo"
-          ladderLabel="Démonstration"
-          user={session?.user ? { name: session.user.name ?? "Discord", avatar: session.user.image ?? null } : null}
-        />
-        <main className="flex-1 pb-24">
-          <Ladder
-            snapshots={snapshots}
-            serverNow={now}
-            ladderSlug="demo"
-            demo
-            banner={
-              <StatusBanner tone="info" title="Données de démonstration.">
-                Ceci est un plateau fictif pour montrer le classement. Connecte-toi
-                pour créer le tien avec tes vrais comptes Riot.
-              </StatusBanner>
-            }
-          />
-        </main>
-        <Footer updatedLabel={clockTime(now)} />
-      </>
-    );
-  }
-
   const ladder = getLadderBySlug(slug);
   if (!ladder) notFound();
 
   const session = await auth();
   const isOwner = session?.user?.id === ladder.ownerUserId;
+  const headerUser = session?.user
+    ? { name: session.user.name ?? "Discord", avatar: session.user.image ?? null }
+    : null;
 
   const built = buildLadderSnapshot(ladder.id, now);
-  const snapshots: Record<string, RankingSnapshot> = built.snapshots;
+  const snapshot = built.snapshot;
   let banner: React.ReactNode = null;
 
   if (built.meta.accounts === 0) {
@@ -137,10 +102,7 @@ export default async function LadderPage({
     }
   }
 
-  const liveCount = Object.values(snapshots).reduce(
-    (a, s) => a + s.entries.filter((e) => e.live).length,
-    0,
-  );
+  const liveCount = snapshot.entries.filter((e) => e.live).length;
 
   return (
     <>
@@ -148,10 +110,16 @@ export default async function LadderPage({
         liveCount={liveCount}
         ladderHref={`/l/${slug}`}
         ladderLabel={ladder.name}
-        user={session?.user ? { name: session.user.name ?? "Discord", avatar: session.user.image ?? null } : null}
+        user={headerUser}
       />
       <main className="flex-1 pb-24">
-        <Ladder snapshots={snapshots} serverNow={now} banner={banner} ladderSlug={slug} />
+        <Ladder
+          snapshot={snapshot}
+          serverNow={now}
+          banner={banner}
+          ladderName={ladder.name}
+          ladderSlug={slug}
+        />
       </main>
       <Footer updatedLabel={clockTime(now)} />
     </>

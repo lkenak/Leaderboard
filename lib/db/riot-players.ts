@@ -349,33 +349,6 @@ export function setLive(puuid: string, live: LiveGame | null): void {
   ).run(puuid, live.championId, live.championName, live.role, live.startedAt);
 }
 
-/* ── Coupes apex ──────────────────────────────────────────────────────────── */
-
-export interface ApexCutoff {
-  challenger: number;
-  grandmaster: number;
-  fetchedAt: number;
-}
-
-export function getCutoff(platform: string): ApexCutoff | null {
-  const row = getDb()
-    .prepare<[string], { challenger: number; grandmaster: number; fetched_at: number }>(
-      "SELECT challenger, grandmaster, fetched_at FROM apex_cutoffs WHERE platform = ?",
-    )
-    .get(platform);
-  return row ? { challenger: row.challenger, grandmaster: row.grandmaster, fetchedAt: row.fetched_at } : null;
-}
-
-export function setCutoff(platform: string, cutoff: ApexCutoff): void {
-  getDb()
-    .prepare(
-      `INSERT INTO apex_cutoffs (platform, challenger, grandmaster, fetched_at)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(platform) DO UPDATE SET challenger = excluded.challenger,
-         grandmaster = excluded.grandmaster, fetched_at = excluded.fetched_at`,
-    )
-    .run(platform, cutoff.challenger, cutoff.grandmaster, cutoff.fetchedAt);
-}
 
 /* ── Méta de synchronisation ──────────────────────────────────────────────── */
 

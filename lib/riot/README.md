@@ -74,14 +74,12 @@ viennent directement de l'API.
 | --- | --- |
 | `routing.ts` | les deux familles d'hôtes Riot (régionale / plateforme) |
 | `client.ts` | `fetch` limité en débit, 404 attendus, erreurs typées |
-| `sync.ts` | le job : résolution, rangs, parties, partie en cours, coupes apex |
+| `sync.ts` | le job : résolution, rangs, parties, partie en cours |
 | `snapshot.ts` | projection du stockage vers le modèle des vues, sans réseau |
 | `refresh.ts` | verrou de processus, âge minimum, déclenchement |
 
-Le stockage est dans `lib/store.ts` : un fichier JSON sous `.data/`, écrit de
-façon atomique et sérialisée. Pour déployer sur un hébergement au système de
-fichiers en lecture seule, il suffit de réimplémenter `read` et `update` sur
-Postgres — rien d'autre ne touche au disque.
+Le stockage est dans `lib/db/` : une base SQLite (`better-sqlite3`) sous
+`LADDER_DATA_DIR`, migrée automatiquement au démarrage (`db/migrations/`).
 
 ## Notes d'API
 
@@ -95,7 +93,6 @@ Tous les endpoints utilisés sont en **PUUID** : Riot a retiré les
 | Rang | `GET /lol/league/v4/entries/by-puuid/{puuid}` |
 | Partie en cours | `GET /lol/spectator/v5/active-games/by-summoner/{puuid}` (404 = hors partie) |
 | Historique | `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420` puis `/matches/{id}` |
-| Coupe apex | `GET /lol/league/v4/{challenger,grandmaster}leagues/by-queue/RANKED_SOLO_5x5` |
 
 Deux pièges rencontrés, traités dans le code :
 

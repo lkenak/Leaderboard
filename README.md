@@ -1,10 +1,12 @@
 # SOLOQ/LADDER
 
-Plateforme de classements League of Legends SoloQ : chacun se connecte avec
-Discord, crée son propre ladder (un groupe de comptes Riot — le sien et ceux
-de ses amis) et retrouve dans « mes ladders » tous ceux où apparaît un compte
-qu'il a déclaré comme sien, même créés par quelqu'un d'autre. Reconstruction
-de la mise en page de [soloqchallenge.gg/ranking][ref], en français.
+Plateforme de classements League of Legends SoloQ pour un petit groupe (une
+vingtaine de joueurs, typiquement) : chacun se connecte avec Discord, crée son
+propre ladder (un groupe de comptes Riot — le sien et ceux de ses amis) et
+retrouve dans « mes ladders » tous ceux où apparaît un compte qu'il a déclaré
+comme sien, même créés par quelqu'un d'autre. Mise en page inspirée de
+[soloqchallenge.gg/ranking][ref], sans les éléments pensés pour un classement
+régional (paliers séparés, coupe apex) plutôt que pour un groupe d'amis.
 
 [ref]: https://soloqchallenge.gg/ranking
 
@@ -38,9 +40,9 @@ npm run migrate:legacy # migration one-shot d'un ancien store.json (voir plus ba
    (**`/l/<slug>/settings`**). Rang, icône, poste, historique et état « en
    partie » sont résolus automatiquement.
 
-Sans compte créé, un ladder affiche un état vide plutôt qu'un plateau fictif.
-La vitrine `/l/demo` reste un jeu de démonstration fixe, pour visiter le site
-sans configuration.
+Sans compte ajouté, un ladder affiche un état vide plutôt qu'un plateau
+fictif — pas de démonstration trompeuse, ce que tu vois est ce qui existe
+vraiment.
 
 Détails du branchement, coût en appels, déclenchement des relevés et pièges
 d'API : **[`lib/riot/README.md`](lib/riot/README.md)**.
@@ -54,21 +56,21 @@ pour en créer un.
 
 **`/l/[slug]/settings`** : réglages d'un ladder, réservés à son propriétaire.
 Un champ pour coller un Riot ID, la liste des comptes avec leur rang relevé,
-le nombre de relevés et de parties connues, la bascule entre sélections, le
-retrait, et l'état du branchement (clé, erreurs, date du dernier relevé).
+le nombre de relevés et de parties connues, le retrait, et l'état du
+branchement (clé, erreurs, date du dernier relevé).
 
-**`/l/[slug]`** : public, comme l'ancien `/ranking`. En-tête avec le leader du
-jour, faits marquants des 24 h, coupe apex, compte à rebours de fin de split,
-podium, et un tableau de **douze colonnes** — place et variation, joueur
-(favori, avatar, drapeau, Riot ID, équipe, liens de chaîne), rôle, palier,
-bilan, variation 24 h, forme, ±LP moyens, KDA, champions, courbe de LP, lien
-profil.
+**`/l/[slug]`** : public. En-tête avec le leader du jour, faits marquants des
+24 h, compte à rebours de fin de split, podium, et un tableau de **dix
+colonnes** — place et variation, joueur (favori, avatar, drapeau, Riot ID),
+rôle, palier, bilan, variation 24 h, forme, ±LP moyens, KDA, champions, courbe
+de LP, lien profil. Un seul classement par ladder : pas de découpage en
+paliers, pensé pour un groupe d'une vingtaine de joueurs plutôt que pour un
+serveur entier.
 
-Interactions : trois sélections (Tous / High elo / Low elo, la vue fusionnée
-renumérotant tout le monde), recherche, filtres rôle / pays / en partie /
-favoris, tri par colonne, bilan cyclable (V·D → différentiel → parties),
-dépliage d'une ligne sur son historique de parties et ses agrégats, choix du
-site de statistiques (OP.GG, U.GG, DeepLoL, LeagueOfGraphs).
+Interactions : recherche, filtres rôle / pays / en partie / favoris, tri par
+colonne, bilan cyclable (V·D → différentiel → parties), dépliage d'une ligne
+sur son historique de parties et ses agrégats, choix du site de statistiques
+(OP.GG, U.GG, DeepLoL, LeagueOfGraphs).
 
 Les préférences — favoris, mode de bilan, site de statistiques — sont
 mémorisées dans le navigateur, par ladder.
@@ -76,7 +78,7 @@ mémorisées dans le navigateur, par ladder.
 ## Structure
 
 ```
-app/l/[slug]/page.tsx     classement public d'un ladder : relevé réel ou démonstration
+app/l/[slug]/page.tsx     classement public d'un ladder — état vide si aucun compte
 app/l/[slug]/settings/    réglages du ladder + Server Actions, réservé au propriétaire
 app/ladders/              « mes ladders » (possédés + découverts) et création
 app/login/                connexion Discord
@@ -97,8 +99,6 @@ lib/db/                   base SQLite : utilisateurs, ladders, appartenances, co
 db/migrations/            schéma SQL versionné, appliqué automatiquement au démarrage
 lib/riot/                 client, synchronisation, projection vers les vues
 lib/champions.ts          généré depuis Data Dragon — ne pas éditer
-lib/mock.ts               jeu de démonstration déterministe (vitrine /l/demo)
-data/roster.ts            plateau fictif de la vitrine
 scripts/migrate-store-to-sqlite.mjs  migration one-shot depuis un ancien store.json
 public/lol/               emblèmes, icônes de rôle, 173 champions, drapeaux
 public/fonts/             General Sans + IBM Plex Mono, auto-hébergées
@@ -123,10 +123,7 @@ relevé.
 **Ce qui n'est pas connu s'affiche comme inconnu.** Un gain de LP qu'aucun
 relevé n'encadre montre `— LP`, pas `±0` ; une fenêtre de 24 h plus courte que
 24 h le dit en infobulle ; un compte sans partie classée est exclu du tableau
-et signalé dans les réglages du ladder au lieu d'être rangé en Fer IV. Le jeu
-de démonstration suit la même règle : il est *cohérent* (l'historique de LP
-découle des deltas des parties, la variation de place est une vraie
-différence entre deux classements) plutôt que rempli au hasard.
+et signalé dans les réglages du ladder au lieu d'être rangé en Fer IV.
 
 ## Vérifications faites
 
@@ -151,7 +148,7 @@ différence entre deux classements) plutôt que rempli au hasard.
 
 | Variable | Rôle |
 | --- | --- |
-| `RIOT_API_KEY` | clé personnelle Riot. Absente → aucun relevé, seule la vitrine `/l/demo` affiche des données. |
+| `RIOT_API_KEY` | clé personnelle Riot. Absente → aucun compte ne peut être relevé. |
 | `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` | application Discord (OAuth2), pour la connexion. |
 | `AUTH_SECRET` | signature des sessions Auth.js. |
 | `AUTH_TRUST_HOST` | `true` dès qu'un reverse proxy (Caddy…) est devant le site. |
@@ -165,5 +162,5 @@ différence entre deux classements) plutôt que rempli au hasard.
 
 Emblèmes de palier, icônes de rôle, portraits de champions et icônes de profil
 proviennent de Data Dragon et Community Dragon (Riot Games). Les drapeaux
-viennent de flagcdn.com. Les joueurs du plateau de démonstration sont fictifs.
-Ce projet n'est ni approuvé par Riot Games ni lié à Riot Games.
+viennent de flagcdn.com. Ce projet n'est ni approuvé par Riot Games ni lié à
+Riot Games.

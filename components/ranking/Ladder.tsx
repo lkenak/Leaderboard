@@ -7,7 +7,6 @@ import {
   countryCounts,
   defaultDir,
   matchesFilters,
-  reposition,
   sortEntries,
   type SortDir,
   type SortKey,
@@ -24,32 +23,24 @@ import { Toolbar, type ToolbarState } from "./Toolbar";
 import { LadderHead, type RecordMode } from "./LadderHead";
 import { LadderRow } from "./LadderRow";
 import { RowDetail } from "./RowDetail";
-import { CutoffWidget, Countdown } from "./Widgets";
-
-const BRACKET_COLOR: Record<string, string> = {
-  "high-elo": "var(--color-acid)",
-  "low-elo": "var(--color-sky)",
-};
+import { Countdown } from "./Widgets";
 
 /**
  * Orchestrateur du classement : tout l'état de la page vit ici, les composants
- * en dessous restent pilotés par leurs propriétés. Les deux sélections sont
- * calculées côté serveur et transmises ensemble, donc basculer de l'une à
- * l'autre ne déclenche aucune requête.
+ * en dessous restent pilotés par leurs propriétés.
  */
 export function Ladder({
-  snapshots,
+  snapshot,
   serverNow,
   banner,
-  demo = false,
+  ladderName,
   ladderSlug,
 }: {
-  snapshots: Record<string, RankingSnapshot>;
+  snapshot: RankingSnapshot;
   serverNow: number;
-  /** Bandeau d'état rendu côté serveur (clé absente, plateau vide, erreurs). */
+  /** Bandeau d'état rendu côté serveur (aucun compte, comptes en erreur…). */
   banner?: React.ReactNode;
-  /** `true` quand les chiffres viennent du jeu de démonstration. */
-  demo?: boolean;
+  ladderName: string;
   /** Namespace les préférences localStorage : sans lui, les favoris d'un
    *  ladder fuiteraient dans un autre. */
   ladderSlug: string;
@@ -60,7 +51,6 @@ export function Ladder({
   const now = useClock(60_000, serverNow);
 
   const [filters, setFilters] = useState<ToolbarState>({
-    bracket: "high-elo",
     query: "",
     roles: [],
     country: null,
@@ -84,20 +74,6 @@ export function Ladder({
     [],
   );
   const provider = findProvider(providerKey);
-
-  /* — La vue « Tous » fusionne les deux tableaux et renumérote. — */
-  const snapshot = useMemo<RankingSnapshot>(() => {
-    if (filters.bracket !== "all") return snapshots[filters.bracket];
-    const base = snapshots["high-elo"];
-    return {
-      ...base,
-      bracketId: "all",
-      entries: reposition([
-        ...snapshots["high-elo"].entries,
-        ...snapshots["low-elo"].entries,
-      ]),
-    };
-  }, [filters.bracket, snapshots]);
 
   const visible = useMemo(() => {
     const filtered = snapshot.entries.filter((e) =>
@@ -137,10 +113,10 @@ export function Ladder({
 
       {banner}
 
-      <PageHeader snapshot={snapshot} now={now} />
+      <PageHeader snapshot={snapshot} ladderName={ladderName} now={now} />
 
       <section className="shell mt-14">
-        {/* — Chapeau de section : titre, relevé, coupe apex, compte à rebours — */}
+        {/* — Chapeau de section : titre, relevé, compte à rebours — */}
         <Reveal>
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="flex items-end gap-4">
@@ -152,19 +128,9 @@ export function Ladder({
                 {agoLabel(snapshot.updatedAt, now)}
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {snapshot.cutoff && (
-                <span className="hidden lg:block">
-                  <CutoffWidget
-                    challenger={snapshot.cutoff.challenger}
-                    grandmaster={snapshot.cutoff.grandmaster}
-                  />
-                </span>
-              )}
-              {snapshot.splitEndsAt !== null && (
-                <Countdown endsAt={snapshot.splitEndsAt} serverNow={serverNow} />
-              )}
-            </div>
+            {snapshot.splitEndsAt !== null && (
+              <Countdown endsAt={snapshot.splitEndsAt} serverNow={serverNow} />
+            )}
           </div>
           <p className="mt-3 text-[0.8125rem] text-ink-3 md:hidden">
             <span className="font-medium text-acid">Dernier relevé&nbsp;:</span>{" "}
@@ -218,10 +184,8 @@ export function Ladder({
               />
 
               {snapshot.entries.length === 0 ? (
-                /* Sélection vide : pas de filtre à réinitialiser, le problème
-                   est en amont — aucun compte classé ici pour l'instant. */
                 <p className="px-4 py-16 text-center text-[0.875rem] text-ink-3">
-                  Aucun joueur classé dans cette sélection pour l&apos;instant.
+                  Aucun joueur classé pour l&apos;instant.
                 </p>
               ) : visible.length === 0 ? (
                 <div className="flex flex-col items-center gap-4 px-4 py-16">
@@ -250,8 +214,6 @@ export function Ladder({
                   <div key={entry.player.puuid}>
                     <LadderRow
                       entry={entry}
-                      showBracketRail={filters.bracket === "all"}
-                      bracketColor={BRACKET_COLOR[entry.bracket]}
                       recordMode={recordMode}
                       provider={provider}
                       favourite={favourites.includes(entry.player.puuid)}
@@ -275,10 +237,8 @@ export function Ladder({
 
             <p className={cn("mt-4 text-[0.75rem] text-ink-4")}>
               Cliquez une ligne pour ouvrir l&apos;historique des parties. Les
-              places et les variations sont recalculées à chaque relevé
-              {demo
-                ? " ; les chiffres affichés ici sont fictifs, aucun compte n'est encore suivi."
-                : ", à partir des rangs relevés sur l'API Riot."}
+              places et les variations sont recalculées à chaque relevé, à
+              partir des rangs relevés sur l&apos;API Riot.
             </p>
           </div>
         </Reveal>

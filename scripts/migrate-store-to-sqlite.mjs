@@ -86,9 +86,8 @@ const run = db.transaction(() => {
   );
   const insertMember = db.prepare(
     `INSERT INTO ladder_members
-       (ladder_id, region, game_name, tag_line, puuid, bracket, country, team_name, team_tag,
-        streamer_platform, streamer_login, role_override, added_by_user_id, added_at, resolve_error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (ladder_id, region, game_name, tag_line, puuid, country, role_override, added_by_user_id, added_at, resolve_error)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   const insertSample = db.prepare(
     `INSERT OR IGNORE INTO rank_samples (puuid, ts, tier, division, league_points, absolute_lp, wins, losses)
@@ -102,9 +101,6 @@ const run = db.transaction(() => {
   const insertLive = db.prepare(
     `INSERT OR REPLACE INTO live_games (puuid, champion_id, champion_name, role, started_at) VALUES (?, ?, ?, ?, ?)`,
   );
-  const insertCutoff = db.prepare(
-    `INSERT OR REPLACE INTO apex_cutoffs (platform, challenger, grandmaster, fetched_at) VALUES (?, ?, ?, ?)`,
-  );
 
   for (const a of store.roster) {
     if (a.puuid) {
@@ -114,9 +110,8 @@ const run = db.transaction(() => {
       );
     }
     insertMember.run(
-      ladderId, a.region, a.gameName, a.tagLine, a.puuid ?? null, a.bracket,
-      a.country ?? null, a.teamName ?? null, a.teamTag ?? null,
-      a.streamer?.platform ?? null, a.streamer?.login ?? null, a.roleOverride ?? null,
+      ladderId, a.region, a.gameName, a.tagLine, a.puuid ?? null,
+      a.country ?? null, a.roleOverride ?? null,
       owner.id, a.addedAt, a.puuid ? null : (a.error ?? "Pas encore synchronisé"),
     );
 
@@ -133,10 +128,6 @@ const run = db.transaction(() => {
       const live = store.live[a.puuid];
       if (live) insertLive.run(a.puuid, live.championId, live.championName, live.role, live.startedAt);
     }
-  }
-
-  for (const [platform, c] of Object.entries(store.cutoffs ?? {})) {
-    insertCutoff.run(platform, c.challenger, c.grandmaster, c.fetchedAt);
   }
 
   db.prepare("UPDATE sync_meta SET last_sync = ?, last_sync_error = ? WHERE id = 1").run(

@@ -7,15 +7,13 @@ import {
   addMember,
   forgetMemberPuuid,
   getLadderBySlug,
-  patchMember,
   removeMember,
   renameLadder,
-  type Bracket,
   type LadderRecord,
 } from "@/lib/db/ladders";
 import { runSync } from "@/lib/riot/refresh";
 import { REGIONS } from "@/lib/riot/routing";
-import { ROLES, type Region, type Role, type StreamerHandle } from "@/lib/types";
+import { ROLES, type Region, type Role } from "@/lib/types";
 
 export interface ActionResult {
   ok: boolean;
@@ -79,20 +77,10 @@ export async function addAccountAction(
   const region = String(form.get("region") ?? "EUW") as Region;
   if (!REGIONS.includes(region)) return { ok: false, message: "Région inconnue." };
 
-  const bracket = String(form.get("bracket") ?? "high-elo") as Bracket;
   const roleRaw = String(form.get("role") ?? "");
   const role = (ROLES as readonly string[]).includes(roleRaw) ? (roleRaw as Role) : undefined;
 
-  const platform = String(form.get("streamPlatform") ?? "");
-  const login = String(form.get("streamLogin") ?? "").trim();
-  const streamer: StreamerHandle | undefined =
-    login && (platform === "twitch" || platform === "kick" || platform === "youtube")
-      ? { platform, login }
-      : undefined;
-
   const country = String(form.get("country") ?? "").trim().toUpperCase();
-  const teamName = String(form.get("teamName") ?? "").trim();
-  const teamTag = String(form.get("teamTag") ?? "").trim().toUpperCase();
 
   try {
     addMember(
@@ -101,12 +89,8 @@ export async function addAccountAction(
         gameName: parsed.gameName,
         tagLine: parsed.tagLine,
         region,
-        bracket,
         roleOverride: role,
-        streamer,
         country: country.length === 2 ? country : undefined,
-        teamName: teamName || undefined,
-        teamTag: teamTag || undefined,
       },
       userId,
     );
@@ -127,15 +111,6 @@ export async function removeAccountAction(slug: string, form: FormData): Promise
   const guard = await guardOwner(slug);
   if (isGuardFailure(guard)) return;
   removeMember(guard.ladder.id, Number(form.get("id")));
-  revalidatePath(`/l/${slug}`);
-  revalidatePath(`/l/${slug}/settings`);
-}
-
-export async function moveBracketAction(slug: string, form: FormData): Promise<void> {
-  const guard = await guardOwner(slug);
-  if (isGuardFailure(guard)) return;
-  const bracket = String(form.get("bracket")) as Bracket;
-  patchMember(guard.ladder.id, Number(form.get("id")), { bracket });
   revalidatePath(`/l/${slug}`);
   revalidatePath(`/l/${slug}/settings`);
 }
