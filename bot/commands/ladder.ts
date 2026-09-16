@@ -220,14 +220,6 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const slugDemande = interaction.options.getString("slug");
 
   if (sous === "lier") {
-    // Seule la présence d'un compte sur le site compte ici : lier un ladder
-    // ne demande pas d'avoir déclaré un compte Riot, seulement d'être le
-    // propriétaire du ladder.
-    const lien = resoudre(interaction.user.id);
-    if (lien.etat === "aucun-compte") {
-      return repondre(messageEtat(lien, env.publicUrl, true));
-    }
-
     /* Deux chemins, un seul principe : le propriétaire du ladder doit avoir
        donné son accord.
          - c'est toi → la propriété suffit ;
@@ -237,9 +229,16 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
        dont son propriétaire était administrateur. Dès qu'on sort de son propre
        serveur, cette personne n'existe pas : l'administrateur n'est pas le
        propriétaire, et le propriétaire n'est pas administrateur. Personne ne
-       pouvait relier quoi que ce soit, et le bot restait muet. */
+       pouvait relier quoi que ce soit, et le bot restait muet.
+
+       Le compte sur le site n'est exigé que par le premier chemin, celui qui
+       doit comparer une propriété. Le porteur d'un code n'a rien à prouver :
+       le code **est** la preuve, et l'envoyer se connecter au site serait une
+       barrière pour rien — précisément dans le cas où il n'a aucune raison
+       d'avoir un compte, puisque le ladder n'est pas le sien. */
     const codeSaisi = interaction.options.getString("code");
     let ladder: LadderRecord | null;
+    let ajoutePar: string | null = null;
 
     if (codeSaisi) {
       // Le code est consommé ici, donc avant toute autre validation qui
@@ -270,6 +269,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             "`code`, si son propriétaire t'en a donné un.",
         );
       }
+
+      const lien = resoudre(interaction.user.id);
+      if (lien.etat === "aucun-compte") {
+        return repondre(messageEtat(lien, env.publicUrl, true));
+      }
+
       ladder = getLadderBySlug(slugDemande);
       if (!ladder) return repondre(`Aucun ladder « ${slugDemande} ».`);
 
@@ -280,6 +285,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
             "`/ladder lier` avec l'option `code`.",
         );
       }
+      ajoutePar = lien.utilisateur.id;
     }
 
     const salon = interaction.options.getChannel("salon");
@@ -301,7 +307,10 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       ladderId: ladder.id,
       guildId: interaction.guildId,
       reportChannelId: salonId,
-      addedByUserId: lien.utilisateur.id,
+      // `null` quand la liaison vient d'un code : la personne qui l'a
+      // saisie n'a pas forcément de compte sur le site, et la colonne
+      // est prévue pour (0004).
+      addedByUserId: ajoutePar,
     });
 
     return repondre(
