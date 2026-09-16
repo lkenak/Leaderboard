@@ -216,10 +216,17 @@ export async function redessiner(client: Client, sessionId: number): Promise<voi
 
     if (session.messageId) {
       try {
-        const message = await salon.messages.fetch(session.messageId);
+        // `messages.edit(id, …)` et non `messages.fetch(id)` puis `.edit()` :
+        // aller chercher le message exige la permission « Lire l'historique
+        // des messages », que le bot ne demande pas à l'invitation. Sans elle,
+        // le fetch échoue en 50001, notre auto-réparation conclut que le
+        // message a disparu, et **chaque clic reposte un nouveau lobby** au
+        // lieu d'éditer l'ancien. L'édition directe est un simple PATCH : il
+        // suffit d'être l'auteur du message.
+        //
         // `attachments: []` est obligatoire ici : `files` ajoute une pièce
         // jointe, il ne remplace pas celle déjà présente.
-        await message.edit({ ...payload, attachments: [] });
+        await salon.messages.edit(session.messageId, { ...payload, attachments: [] });
         return;
       } catch (err) {
         const code = (err as { code?: number })?.code;
