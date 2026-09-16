@@ -32,13 +32,32 @@ export function Footer({ updatedLabel }: { updatedLabel: string }) {
                   Mes ladders
                 </Link>
               </li>
-              {["À propos", "Journal", "Contact"].map((item) => (
-                <li key={item}>
-                  <span className="cursor-default text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-ink-2">
-                    {item}
-                  </span>
-                </li>
-              ))}
+              <li>
+                <Link
+                  href="/confidentialite"
+                  className="text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-acid"
+                >
+                  Confidentialité
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/conditions"
+                  className="text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-acid"
+                >
+                  Conditions
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="https://github.com/lkenak/Leaderboard/issues"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-[0.8125rem] text-ink-3 transition-colors duration-150 hover:text-acid"
+                >
+                  Contact
+                </a>
+              </li>
             </ul>
           </div>
         </div>
