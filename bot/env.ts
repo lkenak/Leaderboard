@@ -18,12 +18,15 @@ export interface BotEnv {
   /** Le Client ID de l'onglet OAuth2 — la même application que la connexion du site. */
   applicationId: string;
   /**
-   * Serveur où les commandes doivent apparaître **tout de suite**.
+   * Le serveur d'itération : celui sur lequel `bot:commands -- --serveur`
+   * publie, pour voir une nouvelle commande sans attendre la propagation
+   * globale.
    *
-   * La publication globale met jusqu'à une heure à se propager. Quand cette
-   * variable est définie, `bot:commands` publie en plus sur ce serveur, où
-   * c'est immédiat — sans remplacer la publication globale, qui reste la
-   * référence (voir `bot/register-commands.ts`).
+   * Elle **désigne** un serveur, elle ne choisit pas la portée : c'est
+   * `--serveur` qui choisit. La laisser définie même en publication globale
+   * est ce qui permet au script de vider le jeu de ce serveur, et donc
+   * d'éviter que chaque commande apparaisse en double
+   * (voir `bot/register-commands.ts`).
    */
   devGuildId: string | null;
   /** Pour les liens cliquables des messages. */

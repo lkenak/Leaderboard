@@ -3,29 +3,39 @@ import { COMMANDES } from "./commands";
 import { loadEnv } from "./env";
 
 /**
- * Publication des commandes auprès de Discord — `npm run bot:commands`.
+ * Publication des commandes auprès de Discord.
+ *
+ *   npm run bot:commands            → portée globale (production)
+ *   npm run bot:commands -- --serveur → portée serveur (immédiat, pour itérer)
  *
  * **Manuellement, jamais au démarrage.** La publication globale est limitée à
  * 200 par jour ; un service en `Restart=always` qui republierait à chaque
  * démarrage brûlerait le quota en une matinée de déploiements.
  *
- * **Deux portées, et non l'une ou l'autre.**
+ * ## Une seule portée à la fois, garantie par le script
  *
- * La publication globale est la bonne en production — un ladder peut être lié
- * à plusieurs serveurs, et les serveurs arrivent par invitation OAuth, il n'y
- * a donc pas de liste à tenir. Mais Discord met **jusqu'à une heure** à la
- * propager : après un déploiement, les nouvelles commandes n'apparaissent
- * nulle part, et rien ne distingue cette attente d'une panne.
+ * Discord range les commandes dans deux jeux distincts : le jeu global, et un
+ * jeu par serveur. Contrairement à ce qu'on pourrait croire, **une commande
+ * de serveur ne masque pas la commande globale de même nom** : les deux
+ * apparaissent, et l'utilisateur voit chaque commande en double. L'erreur a
+ * été commise ici, et elle n'est pas rattrapable côté utilisateur — seul un
+ * appel d'API efface un jeu.
  *
- * Quand `DISCORD_DEV_GUILD_ID` est définie, on publie donc **aussi** sur ce
- * serveur, où la propagation est immédiate. Une commande de serveur prend le
- * pas sur la commande globale de même nom : pas de doublon dans la liste, et
- * les deux copies restent identiques puisqu'elles sont écrites dans le même
- * appel.
+ * Ce script écrit donc dans une portée **et vide l'autre**, à chaque fois.
+ * Quel que soit l'état d'avant, l'état d'après est « exactement un jeu ».
+ * C'est pour pouvoir vider le jeu de serveur que `DISCORD_DEV_GUILD_ID` doit
+ * rester définie même quand on publie en global : elle désigne le serveur
+ * d'itération, elle ne choisit pas la portée. C'est `--serveur` qui choisit.
  *
- * Publier les deux plutôt que l'une ou l'autre, c'est ce qui évite le piège
- * inverse : un jeu de commandes de serveur à jour masquant indéfiniment un
- * global périmé.
+ * ## Laquelle choisir
+ *
+ *  - **Globale** par défaut : un ladder peut être suivi par plusieurs
+ *    serveurs, et les serveurs arrivent par invitation OAuth — il n'y a pas
+ *    de liste à tenir, et le bot fonctionne partout où on l'invite.
+ *    Contrepartie : Discord met parfois jusqu'à une heure à propager, et rien
+ *    ne distingue cette attente d'une panne de déploiement.
+ *  - **`--serveur`** pendant le développement : disponible immédiatement, au
+ *    prix de ne plus répondre ailleurs.
  */
 
 async function publier(): Promise<void> {
@@ -34,22 +44,43 @@ async function publier(): Promise<void> {
   const rest = new REST().setToken(env.token);
   const noms = corps.map((c) => `/${c.name}`).join(", ");
 
-  await rest.put(Routes.applicationCommands(env.applicationId), { body: corps });
-  console.log(`[bot] ${corps.length} commande(s) publiée(s) globalement : ${noms}`);
+  const surServeur = process.argv.includes("--serveur");
+  const globale = Routes.applicationCommands(env.applicationId);
+  const serveur = env.devGuildId
+    ? Routes.applicationGuildCommands(env.applicationId, env.devGuildId)
+    : null;
 
-  if (!env.devGuildId) {
+  if (surServeur && !serveur) {
+    throw new Error(
+      "--serveur demandé mais DISCORD_DEV_GUILD_ID n'est pas définie : " +
+        "le script ne sait pas sur quel serveur publier.",
+    );
+  }
+
+  if (surServeur) {
+    await rest.put(serveur!, { body: corps });
+    await rest.put(globale, { body: [] });
     console.log(
-      "[bot] la propagation globale peut prendre jusqu'à une heure. Définir " +
-        "DISCORD_DEV_GUILD_ID pour publier aussi sur un serveur, où c'est immédiat.",
+      `[bot] ${corps.length} commande(s) sur le serveur ${env.devGuildId}, ` +
+        `disponibles tout de suite : ${noms}`,
+    );
+    console.log(
+      "[bot] jeu global vidé — le bot ne répond plus ailleurs. " +
+        "`npm run bot:commands` (sans --serveur) pour repasser en global.",
     );
     return;
   }
 
-  await rest.put(Routes.applicationGuildCommands(env.applicationId, env.devGuildId), {
-    body: corps,
-  });
+  await rest.put(globale, { body: corps });
+  // Vider le jeu du serveur d'itération s'il en reste un : sans ça, les deux
+  // jeux coexistent et chaque commande apparaît deux fois.
+  if (serveur) await rest.put(serveur, { body: [] });
+
+  console.log(`[bot] ${corps.length} commande(s) publiée(s) globalement : ${noms}`);
+  if (serveur) console.log(`[bot] jeu du serveur ${env.devGuildId} vidé (pas de doublon).`);
   console.log(
-    `[bot] et sur le serveur ${env.devGuildId}, où elles sont disponibles tout de suite.`,
+    "[bot] Discord peut mettre jusqu'à une heure à propager une nouveauté. " +
+      "`npm run bot:commands -- --serveur` pour la voir immédiatement.",
   );
 }
 
