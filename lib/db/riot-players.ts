@@ -51,16 +51,52 @@ export interface UnresolvedIdentity {
 /** Union dédupliquée des identités sans puuid — sur `ladder_members` ET
  *  `user_riot_accounts`, sinon un compte « mien » jamais ajouté à un ladder ne
  *  serait jamais résolu et n'apparaîtrait jamais dans la découverte croisée. */
-export function listUnresolvedIdentities(): UnresolvedIdentity[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT DISTINCT region, game_name, tag_line FROM (
-         SELECT region, game_name, tag_line FROM ladder_members WHERE puuid IS NULL
-         UNION
-         SELECT region, game_name, tag_line FROM user_riot_accounts WHERE puuid IS NULL
-       )`,
-    )
-    .all() as Array<{ region: string; game_name: string; tag_line: string }>;
+/**
+ * Sur quoi porte une synchronisation.
+ *
+ * Le relevé était global et uniquement global : pour faire apparaître un
+ * compte qu'on venait d'ajouter, il fallait attendre qu'un cycle complet
+ * passe sur tous les joueurs de toutes les listes. Pouvoir viser un seul
+ * ladder — ou les comptes d'une seule personne — rend le relevé immédiat là
+ * où on le demande, et évite de consommer du quota pour les autres.
+ */
+export type SyncScope =
+  | { kind: "tout" }
+  | { kind: "ladder"; ladderId: string }
+  | { kind: "utilisateur"; userId: string };
+
+export function listUnresolvedIdentities(
+  scope: SyncScope = { kind: "tout" },
+): UnresolvedIdentity[] {
+  const db = getDb();
+  let rows: Array<{ region: string; game_name: string; tag_line: string }>;
+
+  if (scope.kind === "ladder") {
+    rows = db
+      .prepare(
+        `SELECT DISTINCT region, game_name, tag_line FROM ladder_members
+          WHERE ladder_id = ? AND puuid IS NULL`,
+      )
+      .all(scope.ladderId) as typeof rows;
+  } else if (scope.kind === "utilisateur") {
+    rows = db
+      .prepare(
+        `SELECT DISTINCT region, game_name, tag_line FROM user_riot_accounts
+          WHERE user_id = ? AND puuid IS NULL`,
+      )
+      .all(scope.userId) as typeof rows;
+  } else {
+    rows = db
+      .prepare(
+        `SELECT DISTINCT region, game_name, tag_line FROM (
+           SELECT region, game_name, tag_line FROM ladder_members WHERE puuid IS NULL
+           UNION
+           SELECT region, game_name, tag_line FROM user_riot_accounts WHERE puuid IS NULL
+         )`,
+      )
+      .all() as typeof rows;
+  }
+
   return rows.map((r) => ({ region: r.region as Region, gameName: r.game_name, tagLine: r.tag_line }));
 }
 
@@ -116,14 +152,34 @@ export function resolveIdentity(
 
 /* ── Joueurs résolus (référencés par au moins un ladder ou une déclaration) ─ */
 
-export function listPlayersToSync(): RiotPlayerRecord[] {
-  const rows = getDb()
-    .prepare(
-      `SELECT * FROM riot_players rp WHERE
-         EXISTS (SELECT 1 FROM ladder_members lm WHERE lm.puuid = rp.puuid)
-         OR EXISTS (SELECT 1 FROM user_riot_accounts ura WHERE ura.puuid = rp.puuid)`,
-    )
-    .all() as PlayerRow[];
+export function listPlayersToSync(scope: SyncScope = { kind: "tout" }): RiotPlayerRecord[] {
+  const db = getDb();
+  let rows: PlayerRow[];
+
+  if (scope.kind === "ladder") {
+    rows = db
+      .prepare(
+        `SELECT * FROM riot_players rp WHERE EXISTS (
+           SELECT 1 FROM ladder_members lm WHERE lm.puuid = rp.puuid AND lm.ladder_id = ?)`,
+      )
+      .all(scope.ladderId) as PlayerRow[];
+  } else if (scope.kind === "utilisateur") {
+    rows = db
+      .prepare(
+        `SELECT * FROM riot_players rp WHERE EXISTS (
+           SELECT 1 FROM user_riot_accounts ura WHERE ura.puuid = rp.puuid AND ura.user_id = ?)`,
+      )
+      .all(scope.userId) as PlayerRow[];
+  } else {
+    rows = db
+      .prepare(
+        `SELECT * FROM riot_players rp WHERE
+           EXISTS (SELECT 1 FROM ladder_members lm WHERE lm.puuid = rp.puuid)
+           OR EXISTS (SELECT 1 FROM user_riot_accounts ura WHERE ura.puuid = rp.puuid)`,
+      )
+      .all() as PlayerRow[];
+  }
+
   return rows.map(playerFromRow);
 }
 

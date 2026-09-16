@@ -13,7 +13,7 @@ import {
 import { defaultLinkForGuild, listLinksForGuild } from "@/lib/db/discord-guilds";
 import { LADDER_CARD } from "@/lib/cards/layout";
 import { loadEnv } from "../env";
-import { declencherRefresh, recupererCarte } from "../web";
+import { recupererCarte, relever } from "../web";
 
 /**
  * `/classement` — le classement du serveur, en image.
@@ -48,11 +48,6 @@ export const data = new SlashCommandBuilder()
       .setDescription("Combien de lignes afficher (1 à 12, par défaut 10).")
       .setMinValue(1)
       .setMaxValue(LADDER_CARD.maxRows),
-  )
-  .addBooleanOption((o) =>
-    o
-      .setName("frais")
-      .setDescription("Forcer un relevé Riot avant d'afficher (limité dans le temps).")
   );
 
 export async function autocomplete(interaction: AutocompleteInteraction): Promise<void> {
@@ -106,19 +101,14 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // que de parier sur une machine peu chargée.
   await interaction.deferReply();
 
-  /* 2 — Relevé à la demande, avec garde-fou. */
+  /* 2 — Relevé de CE ladder, systématiquement.
 
-  let noteFraicheur = "";
-  if (interaction.options.getBoolean("frais")) {
-    const res = await declencherRefresh();
-    if (res.statut === "trop-récent") {
-      noteFraicheur = `\n_Relevé ignoré : le précédent date de moins de ${Math.ceil(
-        res.prochainDansMs / 60_000,
-      )} min._`;
-    } else if (res.statut === "échec") {
-      noteFraicheur = `\n_Relevé impossible : ${res.message}._`;
-    }
-  }
+     Le site ne relève plus à chaque visite, et afficher un classement est
+     précisément le moment où quelqu'un veut des chiffres à jour. Le serveur
+     applique son propre âge minimum d'une minute, donc relever à chaque
+     commande ne martèle rien — et seuls les comptes de ce ladder sont
+     interrogés. */
+  await relever({ kind: "ladder", slug: lien.ladder.slug });
 
   /* 3 — La carte. */
 
@@ -139,7 +129,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (!reponse) {
     await interaction.editReply({
       content:
-        `Le classement de **${lien.ladder.name}** (image indisponible).${noteFraicheur}`,
+        `Le classement de **${lien.ladder.name}** (image indisponible).`,
       embeds: [
         new EmbedBuilder()
           .setTitle(lien.ladder.name)
@@ -157,7 +147,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     // donné l'embed construit sur le même modèle. C'est tout l'intérêt de
     // n'avoir qu'un modèle pour trois consommateurs.
     await interaction.editReply({
-      content: reponse.summary + noteFraicheur,
+      content: reponse.summary,
       embeds: [new EmbedBuilder(reponse.fallback)],
       components: [bouton],
       allowedMentions: { parse: [] },
@@ -183,10 +173,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   await interaction.editReply({
     // Pas de résumé au-dessus de l'image : il répétait mot pour mot ce que la
     // carte affiche déjà, en moins lisible. Il n'apparaît que dans le mode
-    // dégradé, où il est la seule information disponible. `noteFraicheur`
-    // reste car elle dit quelque chose que la carte ne dit pas — que le relevé
-    // demandé n'a pas eu lieu.
-    content: noteFraicheur.trim(),
+    // dégradé, où il est la seule information disponible.
+    content: "",
     files: [fichier],
     components: [bouton],
     allowedMentions: { parse: [] },

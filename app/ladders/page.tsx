@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { after, connection } from "next/server";
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { headerContext } from "@/lib/header";
 import { laddersForUser } from "@/lib/db/users";
 import { buildLadderSnapshot } from "@/lib/riot/snapshot";
-import { syncIfStale } from "@/lib/riot/refresh";
 import { clockTime, thousands } from "@/lib/format";
 import { reportedNow } from "@/lib/now";
 import { Header } from "@/components/site/Header";
@@ -28,11 +27,6 @@ export default async function LaddersPage() {
   if (!userId) redirect("/login?from=/ladders");
 
   const { owned, appearingIn } = laddersForUser(userId);
-
-  /* Passer par le hub garde les relevés au chaud, comme une visite de
-     classement. `syncIfStale` vérifie lui-même la clé et l'âge du dernier
-     relevé : sans effet le reste du temps. */
-  after(syncIfStale);
 
   const previewOf = (ladderId: string): LadderPreview => {
     const { snapshot, meta } = buildLadderSnapshot(ladderId, now);

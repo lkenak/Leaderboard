@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { after, connection } from "next/server";
+import { connection } from "next/server";
 import { headerContext } from "@/lib/header";
 import { buildLadderSnapshot } from "@/lib/riot/snapshot";
-import { hasKey, syncIfStale } from "@/lib/riot/refresh";
+import { hasKey } from "@/lib/riot/refresh";
 import { getLadderBySlug } from "@/lib/db/ladders";
 import { clockTime } from "@/lib/format";
 import { reportedNow } from "@/lib/now";
+import { RefreshBar } from "@/components/ranking/RefreshBar";
+import { refreshLadderAction } from "./actions";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { StatusBanner } from "@/components/site/StatusBanner";
@@ -69,11 +71,11 @@ export default async function LadderPage({
       </StatusBanner>
     );
   } else {
-    /* Relevé en arrière-plan : `after` s'exécute une fois la réponse envoyée,
-       donc le visiteur n'attend jamais l'API Riot. Le verrou de `runSync`
-       empêche plusieurs visiteurs de déclencher autant de synchronisations. */
-    after(syncIfStale);
-
+    /* Plus de relevé automatique à la visite. Il faisait travailler l'API Riot
+       pour des visiteurs qui n'avaient rien demandé, et comme `after` s'exécute
+       une fois la réponse envoyée, son résultat n'arrivait de toute façon qu'au
+       chargement suivant — d'où l'impression que le site ne se mettait jamais à
+       jour. C'est maintenant un bouton, et une commande du bot. */
     if (built.meta.lastSync === null) {
       banner = (
         <StatusBanner tone="info" title="Premier relevé en cours.">
@@ -110,6 +112,14 @@ export default async function LadderPage({
         user={headerUser}
       />
       <main className="flex-1 pb-24">
+        {/* Le relevé se demande, il ne se déclenche plus tout seul à la
+            visite — voir `components/ranking/RefreshBar.tsx`. */}
+        <div className="shell pt-6">
+          <RefreshBar
+            updatedLabel={built.meta.lastSync ? clockTime(built.meta.lastSync) : null}
+            action={refreshLadderAction.bind(null, slug)}
+          />
+        </div>
         <Ladder
           snapshot={snapshot}
           serverNow={now}

@@ -10,7 +10,12 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { Avatar } from "@/components/ui/Avatar";
 import { ClaimAccountForm } from "@/components/ladders/ClaimAccountForm";
-import { setMainAccountAction, unclaimAccountAction } from "./actions";
+import { RefreshBar } from "@/components/ranking/RefreshBar";
+import {
+  refreshMyAccountsAction,
+  setMainAccountAction,
+  unclaimAccountAction,
+} from "./actions";
 
 export const metadata: Metadata = {
   title: "Mes comptes Riot",
@@ -58,7 +63,13 @@ export default async function ProfilPage() {
           </p>
 
           <section className="mt-10 rounded-md border border-hair bg-panel p-5">
-            <h2 className="text-sub font-semibold text-ink">Mes comptes Riot</h2>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <h2 className="text-sub font-semibold text-ink">Mes comptes Riot</h2>
+              {/* Un compte ajouté est relevé tout de suite ; ce bouton sert
+                  ensuite, quand on veut rafraîchir un rang sans attendre le
+                  relevé périodique. */}
+              {claimed.length > 0 && <RefreshBar updatedLabel={null} action={refreshMyAccountsAction} />}
+            </div>
             <p className="mt-1.5 mb-5 text-[0.8125rem] leading-relaxed text-ink-3">
               Déclare ici tes propres comptes — sans vérification — pour voir
               apparaître dans « où j&apos;apparais » tous les ladders où ils

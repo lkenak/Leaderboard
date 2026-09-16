@@ -1,4 +1,3 @@
-import { getSyncMeta } from "@/lib/db/riot-players";
 import { loadEnv } from "./env";
 
 /**
@@ -31,38 +30,32 @@ async function appeler(chemin: string, timeoutMs: number): Promise<Response> {
 /* ── Relevé Riot ──────────────────────────────────────────────────────────── */
 
 /**
- * Âge minimal entre deux relevés déclenchés par le bot.
+ * Relevé **ciblé** : ce ladder, ou les comptes de cette personne.
  *
- * `POST /api/refresh` appelle `runSync()` **sans** contrôle d'âge — seul
- * `syncIfStale()` en a un. Le bot est donc le seul garde-fou contre une
- * commande `/classement frais:true` répétée qui brûlerait le quota Riot.
+ * C'est celui que les commandes utilisent. Une commande affiche un classement
+ * ou une fiche précise ; relever tous les comptes du site ferait attendre son
+ * auteur pour des joueurs qu'il ne regarde pas. Le serveur applique son propre
+ * âge minimum, donc appeler à chaque commande est sans danger.
  *
- * Le contrôle se fait sur `sync_meta` **en base** et non sur une variable de
- * ce processus : ça survit à un redémarrage du bot, et ça tient compte des
- * relevés déclenchés par le minuteur systemd ou par une visite du site.
+ * Attendu, mais jamais bloquant pour l'affichage : en cas d'échec on rend la
+ * main et la commande affiche les données qu'elle a.
  */
-function intervalleMinimalMs(): number {
-  const brut = Number(process.env.REFRESH_INTERVAL_MS ?? 300_000);
-  return Number.isFinite(brut) ? Math.max(60_000, brut) : 300_000;
-}
-
-export type ResultatRefresh =
-  | { statut: "lancé" }
-  | { statut: "trop-récent"; prochainDansMs: number }
-  | { statut: "échec"; message: string };
-
-export async function declencherRefresh(): Promise<ResultatRefresh> {
-  const { lastSync } = getSyncMeta();
-  const age = lastSync === null ? Infinity : Date.now() - lastSync;
-  const minimum = intervalleMinimalMs();
-  if (age < minimum) return { statut: "trop-récent", prochainDansMs: minimum - age };
+export async function relever(
+  cible: { kind: "ladder"; slug: string } | { kind: "utilisateur"; userId: string },
+): Promise<void> {
+  const env = loadEnv();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (env.refreshSecret) headers.Authorization = `Bearer ${env.refreshSecret}`;
 
   try {
-    const res = await appeler("/api/refresh", TIMEOUT_REFRESH_MS);
-    if (!res.ok) return { statut: "échec", message: `le site a répondu ${res.status}` };
-    return { statut: "lancé" };
+    await fetch(`${env.internalUrl}/api/internal/sync`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(cible),
+      signal: AbortSignal.timeout(TIMEOUT_REFRESH_MS),
+    });
   } catch (err) {
-    return { statut: "échec", message: err instanceof Error ? err.message : String(err) };
+    console.warn("[bot] relevé ciblé impossible :", err instanceof Error ? err.message : err);
   }
 }
 

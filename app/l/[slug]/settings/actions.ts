@@ -7,11 +7,12 @@ import {
   addMember,
   forgetMemberPuuid,
   getLadderBySlug,
+  listMembers,
   removeMember,
   renameLadder,
   type LadderRecord,
 } from "@/lib/db/ladders";
-import { runSync } from "@/lib/riot/refresh";
+import { refreshLadder, resumerReleve } from "@/lib/riot/refresh";
 import { REGIONS } from "@/lib/riot/routing";
 import { ROLES, type Region, type Role } from "@/lib/types";
 
@@ -99,12 +100,24 @@ export async function addAccountAction(
     throw err;
   }
 
+  // Relevé ciblé de ce seul ladder, tout de suite et attendu : le compte
+  // n'attend plus qu'un relevé global veuille bien passer. Deux ou trois
+  // appels, et surtout un Riot ID mal tapé se signale sur-le-champ au lieu
+  // d'apparaître en rouge un quart d'heure plus tard.
+  await refreshLadder(ladder.id, { force: true });
+
   revalidatePath(`/l/${slug}`);
   revalidatePath(`/l/${slug}/settings`);
-  return {
-    ok: true,
-    message: `${parsed.gameName}#${parsed.tagLine} ajouté. Le prochain relevé résoudra son rang.`,
-  };
+
+  const label = `${parsed.gameName}#${parsed.tagLine}`;
+  const membre = listMembers(ladder.id).find(
+    (m) => m.gameName === parsed.gameName && m.tagLine === parsed.tagLine,
+  );
+  if (membre?.resolveError) return { ok: false, message: `${label} : ${membre.resolveError}` };
+  if (!membre?.puuid) {
+    return { ok: true, message: `${label} ajouté — pas encore retrouvé chez Riot.` };
+  }
+  return { ok: true, message: `${label} ajouté et relevé.` };
 }
 
 export async function removeAccountAction(slug: string, form: FormData): Promise<void> {
@@ -123,6 +136,11 @@ export async function retryAccountAction(slug: string, form: FormData): Promise<
   const guard = await guardOwner(slug);
   if (isGuardFailure(guard)) return;
   forgetMemberPuuid(guard.ladder.id, Number(form.get("id")));
+  // Sans ce relevé, « réessayer » se contentait d'effacer le puuid et de
+  // laisser la ligne dans le même état : rien de visible, et l'impression que
+  // le bouton ne marche pas.
+  await refreshLadder(guard.ladder.id, { force: true });
+  revalidatePath(`/l/${slug}`);
   revalidatePath(`/l/${slug}/settings`);
 }
 
@@ -159,19 +177,14 @@ export async function syncNowAction(
         "RIOT_API_KEY absente : copier .env.example vers .env.local, y coller une clé personnelle, puis relancer le serveur.",
     };
   }
-  try {
-    const report = await runSync();
-    revalidatePath(`/l/${slug}/settings`);
-    revalidatePath(`/l/${slug}`);
-    const parts = [
-      `${report.calls} appels`,
-      `${report.newSamples} relevé(s)`,
-      `${report.newGames} partie(s)`,
-      `${report.inGame} en jeu`,
-    ];
-    if (report.errors.length > 0) parts.push(`${report.errors.length} erreur(s)`);
-    return { ok: report.errors.length === 0, message: parts.join(" · ") };
-  } catch (err) {
-    return { ok: false, message: err instanceof Error ? err.message : String(err) };
-  }
+  // Ce ladder seulement, et non tous les comptes suivis par le site : c'est
+  // celui-là qu'on regarde, et relever les autres ferait attendre pour rien
+  // en consommant du quota que personne n'a demandé.
+  const resultat = await refreshLadder(guard.ladder.id);
+  revalidatePath(`/l/${slug}/settings`);
+  revalidatePath(`/l/${slug}`);
+  return {
+    ok: resultat.statut === "fait" && resultat.report.errors.length === 0,
+    message: resumerReleve(resultat),
+  };
 }

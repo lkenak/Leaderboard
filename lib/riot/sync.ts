@@ -21,8 +21,17 @@ import {
 } from "./client";
 
 /**
- * Synchronisation de tous les comptes Riot référencés par au moins un ladder
- * ou une déclaration « mes comptes », quel que soit leur nombre de ladders —
+ * Synchronisation des comptes Riot d'une **portée** : tout le monde, un seul
+ * ladder, ou les comptes déclarés par une seule personne.
+ *
+ * La portée existe parce qu'un relevé global est le mauvais outil pour la
+ * plupart des demandes. Faire apparaître un compte qu'on vient d'ajouter
+ * demande deux appels ; les faire passer par un cycle complet sur tous les
+ * joueurs, c'était attendre des minutes et consommer du quota pour des comptes
+ * que personne ne regardait.
+ *
+ * Quelle que soit la portée, un compte suivi par deux ladders n'est relevé
+ * qu'une fois —
  * une seule clé API, un seul quota, donc un compte partagé entre deux ladders
  * n'est résolu et suivi qu'une seule fois (voir `lib/db/riot-players.ts`).
  *
@@ -150,7 +159,9 @@ function dominantRole(games: GameRecord[]): Role | undefined {
 
 /* ── Le job ───────────────────────────────────────────────────────────────── */
 
-export async function sync(): Promise<SyncReport> {
+export async function sync(
+  scope: players.SyncScope = { kind: "tout" },
+): Promise<SyncReport> {
   const startedAt = Date.now();
   const callsBefore = callsTotal();
   const report: SyncReport = {
@@ -168,9 +179,12 @@ export async function sync(): Promise<SyncReport> {
 
   // Un compte retiré de son dernier ladder (ou « mes comptes ») ne doit plus
   // être interrogé — mieux vaut le savoir avant de consommer du quota pour lui.
-  players.pruneOrphanPlayers();
+  // Uniquement sur un relevé global : un compte orphelin n'est pas dans la
+  // portée qu'on vient de viser, et le ménage n'a pas à s'inviter dans une
+  // synchronisation ciblée.
+  if (scope.kind === "tout") players.pruneOrphanPlayers();
 
-  const unresolved = players.listUnresolvedIdentities();
+  const unresolved = players.listUnresolvedIdentities(scope);
   report.accounts = unresolved.length;
 
   /* 1 — Riot ID → puuid, une seule fois par identité déclarée. Deux
@@ -196,7 +210,7 @@ export async function sync(): Promise<SyncReport> {
     }
   }
 
-  const roster = players.listPlayersToSync();
+  const roster = players.listPlayersToSync(scope);
   report.accounts += roster.length;
 
   for (const account of roster) {
@@ -311,10 +325,16 @@ export async function sync(): Promise<SyncReport> {
     }
   }
 
-  players.setSyncMeta(
-    Date.now(),
-    report.errors.length > 0 ? `${report.errors.length} compte(s) en erreur` : null,
-  );
+  // `sync_meta` date le relevé **global**, et lui seul. Une synchro ciblée qui
+  // l'écrirait ferait croire que tous les comptes viennent d'être relevés, et
+  // le relevé global suivant se croirait à jour — les autres joueurs
+  // gèleraient sans que rien ne le signale.
+  if (scope.kind === "tout") {
+    players.setSyncMeta(
+      Date.now(),
+      report.errors.length > 0 ? `${report.errors.length} compte(s) en erreur` : null,
+    );
+  }
 
   report.calls = callsTotal() - callsBefore;
   report.durationMs = Date.now() - startedAt;

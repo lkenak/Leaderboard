@@ -11,7 +11,7 @@ import {
 import { defaultLinkForGuild } from "@/lib/db/discord-guilds";
 import { loadEnv } from "../env";
 import { labelCompte, messageEtat, resoudre } from "../liens";
-import { recupererCarte } from "../web";
+import { recupererCarte, relever } from "../web";
 
 /**
  * `/profil [membre]` — la fiche d'un joueur.
@@ -57,6 +57,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   await interaction.deferReply();
+
+  // Relevé des comptes de la personne affichée, avant de dessiner : consulter
+  // une fiche est le moment où on veut des chiffres à jour, et le site ne
+  // relève plus à chaque visite. Le serveur applique son âge minimum, donc
+  // enchaîner les commandes ne martèle pas l'API Riot.
+  await relever({ kind: "utilisateur", userId: lien.utilisateur.id });
 
   // Le ladder par défaut du serveur donne la position ; sans lui la fiche
   // reste complète, simplement sans classement.
