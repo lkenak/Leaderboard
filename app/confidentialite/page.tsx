@@ -24,12 +24,16 @@ export default async function PrivacyPage() {
             Politique de confidentialité
           </h1>
           <p className="mt-4 text-[0.8125rem] italic text-ink-4">
-            Summary for reviewers: this is a small hobby project. It stores your
+            Summary for reviewers: this is a small hobby project, made of a
+            website and a Discord bot sharing one database. It stores your
             Discord profile (for login), the Riot IDs you choose to track, and
             the corresponding public Riot API data (rank, matches, live status).
-            Nothing is sold, shared with advertisers, or used to de-anonymize
-            anyone — data shown is limited to Riot IDs explicitly entered by a
-            user.
+            The bot additionally stores the guild and channel IDs it was
+            configured for, and — for custom-game sign-ups — participant Discord
+            IDs with their RSVP status. <strong>The bot requests only the
+            Guilds intent and cannot read message content.</strong> Nothing is
+            sold, shared with advertisers, or used to de-anonymize anyone — data
+            shown is limited to Riot IDs explicitly entered by a user.
           </p>
 
           <div className="mt-10 flex flex-col gap-8 text-[0.875rem] leading-relaxed text-ink-2">
@@ -41,9 +45,30 @@ export default async function PrivacyPage() {
                 <li>
                   <strong className="text-ink">Ton compte Discord</strong> —
                   identifiant, pseudo et avatar, fournis par Discord au moment de
-                  la connexion. Le site n&apos;a accès à rien d&apos;autre sur
-                  ton compte Discord (pas tes messages, pas tes serveurs, pas ton
-                  e-mail).
+                  la connexion. Le site ne demande aucune autre autorisation sur
+                  ton compte : ni ton e-mail, ni la liste de tes serveurs, ni
+                  quoi que ce soit d&apos;autre.
+                </li>
+                <li>
+                  <strong className="text-ink">
+                    Ce que le bot Discord enregistre
+                  </strong>{" "}
+                  — quand il est invité sur un serveur : l&apos;identifiant du
+                  serveur et celui du salon choisi pour ses messages, pour savoir
+                  quel classement afficher et où. Quand quelqu&apos;un s&apos;inscrit à
+                  une partie personnalisée : son identifiant Discord, son statut
+                  (inscrit, liste d&apos;attente, indisponible) et, s&apos;il n&apos;a
+                  pas lié de compte Riot, le palier et les postes qu&apos;il
+                  déclare lui-même.
+                  <br />
+                  <strong className="text-ink">
+                    Le bot ne lit aucun message.
+                  </strong>{" "}
+                  Il ne demande à Discord que l&apos;autorisation minimale
+                  (<span className="num">Guilds</span>) : il reçoit les clics sur
+                  ses propres boutons et les commandes qui lui sont adressées,
+                  rien d&apos;autre. Il ne peut techniquement pas voir le contenu
+                  des conversations, même dans les salons où il se trouve.
                 </li>
                 <li>
                   <strong className="text-ink">Les Riot ID que tu ajoutes</strong>{" "}
@@ -92,9 +117,11 @@ export default async function PrivacyPage() {
               <p className="mt-3">
                 Un compte Riot retiré de tous les ladders qui le référencent (et
                 de « mes comptes » de tout utilisateur) voit son historique
-                supprimé automatiquement. Pour supprimer ton compte Discord ou
-                demander la suppression complète de tes données, ouvre une
-                demande sur le dépôt du projet.
+                supprimé automatiquement. Retirer le bot d&apos;un serveur, ou
+                le délier avec <span className="num">/ladder delier</span>,
+                efface la configuration de ce serveur. Pour supprimer ton compte
+                Discord ou demander la suppression complète de tes données,
+                ouvre une demande sur le dépôt du projet.
               </p>
             </section>
 
@@ -106,8 +133,10 @@ export default async function PrivacyPage() {
                   Legends) — pour les données de classement.
                 </li>
                 <li>
-                  <strong className="text-ink">Discord</strong> (OAuth) — pour la
-                  connexion uniquement.
+                  <strong className="text-ink">Discord</strong> — pour la
+                  connexion au site (OAuth), et pour le bot : afficher les
+                  classements et organiser les parties personnalisées dans les
+                  serveurs qui l&apos;ont invité.
                 </li>
                 <li>
                   <strong className="text-ink">Data Dragon / Community Dragon</strong>{" "}

@@ -25,10 +25,11 @@ export default async function TermsPage() {
           </h1>
           <p className="mt-4 text-[0.8125rem] italic text-ink-4">
             Summary for reviewers: a free, non-commercial, read-only companion
-            site for tracking League of Legends Solo Queue rank among a
-            self-chosen group of accounts. No gameplay automation, no write
-            access to Riot services, provided as-is with no guarantee of
-            uptime or accuracy. Not affiliated with Riot Games or Discord.
+            site and Discord bot for tracking League of Legends Solo Queue rank
+            among a self-chosen group of accounts, and for organising custom
+            games between them. No gameplay automation, no write access to Riot
+            services, provided as-is with no guarantee of uptime or accuracy.
+            Not affiliated with Riot Games or Discord.
           </p>
 
           <div className="mt-10 flex flex-col gap-8 text-[0.875rem] leading-relaxed text-ink-2">
@@ -40,6 +41,15 @@ export default async function TermsPage() {
                 comptes. Il lit des données publiques via l&apos;API Riot Games
                 et les affiche sous forme de classement, sans jamais écrire ni
                 agir sur un compte Riot, une partie ou un client de jeu.
+              </p>
+              <p className="mt-3">
+                Un <strong className="text-ink">bot Discord</strong> accompagne
+                le site. Invité sur un serveur, il y affiche ces mêmes
+                classements et permet d&apos;organiser des parties
+                personnalisées entre joueurs. Il n&apos;ajoute aucune donnée
+                nouvelle sur les comptes Riot : il présente celles que le site
+                a déjà relevées. L&apos;inviter, le configurer et le retirer
+                sont à la main des administrateurs du serveur.
               </p>
             </section>
 
