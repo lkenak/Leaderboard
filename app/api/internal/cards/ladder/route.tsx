@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { LadderCard } from "@/lib/cards/LadderCard";
+import { LadderCard, ladderCardSize } from "@/lib/cards/LadderCard";
 import { ladderFallbackEmbed } from "@/lib/cards/fallback";
 import { refuseNonAutorise } from "@/lib/cards/internal-auth";
-import { LADDER_CARD, ladderCardHeight } from "@/lib/cards/layout";
+import { LADDER_CARD } from "@/lib/cards/layout";
 import { buildLadderCardModel, ladderAltText, ladderSummary } from "@/lib/cards/models";
 import { renderCard } from "@/lib/cards/render";
 import { getLadderBySlug } from "@/lib/db/ladders";
@@ -74,10 +74,10 @@ export async function GET(request: NextRequest) {
 
   let png: Buffer;
   try {
-    png = await renderCard(carte, {
-      width: LADDER_CARD.width,
-      height: ladderCardHeight(Math.max(model.rows.length, 3)),
-    });
+    // Les dimensions viennent du composant lui-même : `ImageResponse` fixe la
+    // taille du PNG, le composant peint le fond, et toute divergence entre les
+    // deux sort en blanc au bas de la carte.
+    png = await renderCard(carte, ladderCardSize(model));
   } catch (err) {
     console.warn(
       `[cartes] rendu du classement ${slug} échoué :`,

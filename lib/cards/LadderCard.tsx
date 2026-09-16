@@ -223,9 +223,26 @@ function Vide() {
   );
 }
 
+/**
+ * La taille de la toile, calculée une seule fois ici.
+ *
+ * L'appelant (`app/api/internal/cards/ladder/route.tsx`) doit passer
+ * exactement ces dimensions à `renderCard` : satori peint le `Frame`, mais
+ * c'est `ImageResponse` qui fixe la taille du PNG. Si les deux divergent, la
+ * différence sort en blanc — c'est ce qui est arrivé avec un ladder de deux
+ * joueurs contre un plancher à trois lignes.
+ */
+export function ladderCardSize(model: LadderCardModel): { width: number; height: number } {
+  // Le plancher de 3 lignes vaut pour le cartouche « aucun joueur classé »,
+  // qui occupe la hauteur de trois lignes ; au-delà, la carte suit le nombre
+  // réel de joueurs.
+  const lignes = model.rows.length;
+  return { width: W, height: ladderCardHeight(lignes === 0 ? 3 : lignes) };
+}
+
 export function LadderCard({ model }: { model: LadderCardModel }) {
   const lignes = model.rows.length;
-  const hauteur = lignes === 0 ? ladderCardHeight(3) : ladderCardHeight(lignes);
+  const { height: hauteur } = ladderCardSize(model);
 
   return (
     <Frame width={W} height={hauteur}>
