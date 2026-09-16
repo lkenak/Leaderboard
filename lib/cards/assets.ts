@@ -50,6 +50,42 @@ export function asset(publicPath: string): string {
 }
 
 /**
+ * Les dimensions intrinsèques d'un PNG, lues dans son en-tête.
+ *
+ * Existe parce que supposer une image carrée coûte cher : les emblèmes de
+ * palier sont en 16:9 (1280×720), et les forcer dans un carré les étirait
+ * verticalement de 44 %. Une carte doit calculer sa hauteur depuis le ratio
+ * réel, pas depuis une intuition.
+ *
+ * PNG seulement : la largeur et la hauteur tiennent dans le bloc IHDR, aux
+ * octets 16 à 24, toujours. Les SVG n'en ont pas besoin — ils se redimensionnent
+ * sans se déformer.
+ */
+export function pngSize(publicPath: string): { width: number; height: number } | null {
+  try {
+    const entete = readFileSync(join(process.cwd(), "public", publicPath)).subarray(0, 24);
+    if (entete.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return null;
+    return { width: entete.readUInt32BE(16), height: entete.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Une image de largeur donnée, à hauteur proportionnelle.
+ *
+ * Renvoie un carré si les dimensions sont illisibles : mieux vaut une image
+ * mal proportionnée qu'une carte qui n'existe pas.
+ */
+export function scaledToWidth(publicPath: string, width: number): { width: number; height: number } {
+  const taille = pngSize(publicPath);
+  return {
+    width,
+    height: taille ? Math.round((width * taille.height) / taille.width) : width,
+  };
+}
+
+/**
  * Les deux ensembles finis et petits (11 crests + 5 postes ≈ 35 Ko) que toute
  * carte de classement utilise. Les champions (173 × ~4 Ko) et les emblèmes
  * (~150 Ko pièce) restent à la demande : les précharger coûterait 30 Mo pour

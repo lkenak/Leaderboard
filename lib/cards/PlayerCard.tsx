@@ -2,7 +2,7 @@ import { emblemSrc } from "@/lib/lol";
 import { PLAYER_CARD } from "./layout";
 import type { PlayerCardModel } from "./models";
 import { stampLabel } from "./models";
-import { asset } from "./assets";
+import { asset, scaledToWidth } from "./assets";
 import {
   Crest,
   DeltaText,
@@ -29,6 +29,9 @@ const W = PLAYER_CARD.width;
 const H = PLAYER_CARD.height;
 const PAD = PLAYER_CARD.padX;
 
+/** Largeur du filigrane ; la hauteur suit le ratio reel du fichier. */
+const EMBLEME = (tier: PlayerCardModel["tier"]) => scaledToWidth(emblemSrc(tier), 520);
+
 function Stat({ libelle, valeur, couleur = COLOR.ink }: {
   libelle: string;
   valeur: string;
@@ -45,21 +48,24 @@ function Stat({ libelle, valeur, couleur = COLOR.ink }: {
 export function PlayerCard({ model }: { model: PlayerCardModel }) {
   return (
     <Frame width={W} height={H}>
-      {/* Emblème du palier en filigrane, débordant du coin — le motif de
-          `components/ranking/Podium.tsx`. C'est ce qui fait qu'on reconnaît
-          le palier avant d'avoir lu quoi que ce soit. */}
+      {/* Emblème du palier en filigrane — le motif de
+          `components/ranking/Podium.tsx`. C'est ce qui fait qu'on reconnaît le
+          palier avant d'avoir lu quoi que ce soit.
+
+          Les dimensions viennent du fichier, jamais d'une supposition : les
+          emblèmes sont en 16:9, et les forcer dans un carré les étirait
+          verticalement de 44 %. L'œuvre est centrée dans son cadre, d'où le
+          décalage à droite qui amène le blason dans le coin. */}
       <div
         style={{
           display: "flex",
           position: "absolute",
-          top: -60,
-          right: -70,
-          width: 380,
-          height: 380,
+          top: -34,
+          right: -150,
           opacity: 0.19,
         }}
       >
-        <img src={asset(emblemSrc(model.tier))} width={380} height={380} alt="" />
+        <img src={asset(emblemSrc(model.tier))} {...EMBLEME(model.tier)} alt="" />
       </div>
 
       <div
