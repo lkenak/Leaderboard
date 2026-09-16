@@ -52,9 +52,21 @@ export function Frame({
   );
 }
 
-/** Le rail acide du `Podium` : la signature de bas de carte. */
-export function Rail({ width = "38%" }: { width?: number | string }) {
-  return <div style={{ display: "flex", width, height: 4, background: COLOR.acid }} />;
+/**
+ * Le rail du `Podium` : la signature de bas de carte.
+ *
+ * Acide par défaut, mais il prend la couleur de l'état quand la carte en a un
+ * — sur une PP annulée, tout le reste passe au brasier et un rail resté acide
+ * détonnait.
+ */
+export function Rail({
+  width = "38%",
+  color = COLOR.acid,
+}: {
+  width?: number | string;
+  color?: string;
+}) {
+  return <div style={{ display: "flex", width, height: 4, background: color }} />;
 }
 
 /* ── Texte ────────────────────────────────────────────────────────────────── */

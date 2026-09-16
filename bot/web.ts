@@ -125,6 +125,41 @@ export async function recupererCarte(chemin: string): Promise<CarteRendue | null
   }
 }
 
+/**
+ * Comme `recupererCarte`, mais en envoyant le modèle plutôt qu'en le
+ * désignant — pour le lobby de PP, dont le modèle mêle des données Discord
+ * (noms d'affichage) et des données du site (rangs), et que seul le bot peut
+ * assembler.
+ */
+export async function rendreCarte(
+  chemin: string,
+  modele: unknown,
+): Promise<CarteRendue | null> {
+  const env = loadEnv();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (env.refreshSecret) headers.Authorization = `Bearer ${env.refreshSecret}`;
+
+  try {
+    const res = await fetch(`${env.internalUrl}${chemin}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(modele),
+      signal: AbortSignal.timeout(TIMEOUT_CARTE_MS),
+    });
+
+    if (!res.ok && res.status !== 503) {
+      console.warn(`[bot] carte ${chemin} : le site a répondu ${res.status}`);
+      return null;
+    }
+
+    const data = (await res.json()) as CartePayload;
+    return { ...data, png: data.png ? Buffer.from(data.png, "base64") : null };
+  } catch (err) {
+    console.warn(`[bot] carte ${chemin} injoignable :`, err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 /** Le site répond-il ? Utilisé par `/ping` pour diagnostiquer sans SSH. */
 export async function siteJoignable(): Promise<boolean> {
   try {

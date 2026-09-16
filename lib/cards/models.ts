@@ -199,6 +199,51 @@ export function playerAltText(model: PlayerCardModel): string {
   return `${morceaux.join(", ")}. Relevé du ${stampLabel(model.updatedAt)}.`;
 }
 
+/* ── Lobby de partie personnalisée ────────────────────────────────────────── */
+
+export interface LobbyPlayerModel {
+  /** Le nom d'affichage Discord — la carte ne peut pas porter de mention. */
+  name: string;
+  tier: Tier | null;
+  rankShort: string | null;
+  /** `true` quand le rang vient d'un relevé et non d'une déclaration. */
+  mesure: boolean;
+  role: Role | null;
+}
+
+export interface LobbyCardModel {
+  mode: string;
+  format: string;
+  instant: string;
+  organizer: string;
+  maxPlayers: number;
+  participants: LobbyPlayerModel[];
+  waitlist: LobbyPlayerModel[];
+  unavailable: number;
+  cancelled: boolean;
+  updatedAt: number;
+}
+
+/**
+ * Texte alternatif du lobby.
+ *
+ * Il compte, il ne décrit pas : « sept participants sur dix » est ce qu'on
+ * veut entendre en premier, la liste ensuite.
+ */
+export function lobbyAltText(model: LobbyCardModel): string {
+  if (model.cancelled) {
+    return `Partie personnalisée ${model.mode} du ${model.instant} — annulée.`;
+  }
+  const noms = model.participants.map((p) => p.name).join(", ") || "personne pour l'instant";
+  const attente =
+    model.waitlist.length > 0 ? ` File d'attente : ${model.waitlist.length}.` : "";
+  return (
+    `Partie personnalisée ${model.mode} ${model.format}, ${model.instant}, ` +
+    `organisée par ${model.organizer}. ` +
+    `${model.participants.length} participants sur ${model.maxPlayers} : ${noms}.${attente}`
+  );
+}
+
 /* ── Textes qui accompagnent l'image ──────────────────────────────────────── */
 
 /** `+24`, `-17`, `—` quand la variation est inconnue. */

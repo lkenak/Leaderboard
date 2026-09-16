@@ -2,6 +2,8 @@ import { Client, Events, GatewayIntentBits, MessageFlags } from "discord.js";
 import { PAR_NOM } from "./commands";
 import { ouvrirBase } from "./db";
 import { loadEnv } from "./env";
+import { gererBouton, gererMenu } from "./pp/interactions";
+import { demarrerRappels } from "./pp/rappels";
 
 /**
  * Le bot Discord de SOLOQ/LADDER.
@@ -32,6 +34,10 @@ const etat = ouvrirBase();
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, (c) => {
+  // Balayage des rappels de PP : démarré ici et pas plus tôt, il n'a rien à
+  // envoyer tant que la passerelle n'est pas prête.
+  demarrerRappels(c);
+
   console.log(
     `[bot] connecté en tant que ${c.user.tag} · ${c.guilds.cache.size} serveur(s) · ` +
       `schéma ${etat.appliquees.at(-1)} · site ${env.internalUrl}`,
@@ -54,6 +60,26 @@ client.on(Events.InteractionCreate, async (interaction) => {
       } catch {
         /* déjà répondu ou expiré */
       }
+    }
+    return;
+  }
+
+  // Lobbys de PP : un seul préfixe, un seul aiguillage — le motif
+  // `pp:<action>:<id>[:<champ>]` de l'ancien bot, qui évite d'avoir à tenir
+  // un registre de composants.
+  if (interaction.isButton() && interaction.customId.startsWith("pp:")) {
+    try {
+      await gererBouton(interaction);
+    } catch (err) {
+      console.error("[pp] bouton :", err);
+    }
+    return;
+  }
+  if (interaction.isStringSelectMenu() && interaction.customId.startsWith("pp:")) {
+    try {
+      await gererMenu(interaction);
+    } catch (err) {
+      console.error("[pp] menu :", err);
     }
     return;
   }

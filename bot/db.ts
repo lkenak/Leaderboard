@@ -22,10 +22,9 @@ import { disableMigrations, getDb } from "@/lib/db/client";
  * La migration la plus récente dont ce code a besoin.
  *
  * À relever dans le même commit que chaque migration dont le bot dépend.
- * Aujourd'hui `0004` : sans `ladder_discord_guilds`, aucune commande ne peut
- * savoir quel ladder ce serveur suit.
+ * Aujourd'hui `0005` : les tables des parties personnalisées.
  */
-export const MIGRATION_MINIMALE = "0004_ladder_discord_guilds.sql";
+export const MIGRATION_MINIMALE = "0005_pp_sessions.sql";
 
 export interface EtatSchema {
   appliquees: string[];
