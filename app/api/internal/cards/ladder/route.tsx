@@ -4,6 +4,7 @@ import { ladderFallbackEmbed } from "@/lib/cards/fallback";
 import { refuseNonAutorise } from "@/lib/cards/internal-auth";
 import { LADDER_CARD } from "@/lib/cards/layout";
 import { buildLadderCardModel, ladderAltText, ladderSummary } from "@/lib/cards/models";
+import { ensureProfileIcons } from "@/lib/cards/profile-icons";
 import { renderCard } from "@/lib/cards/render";
 import { getLadderBySlug } from "@/lib/db/ladders";
 import { buildLadderSnapshot } from "@/lib/riot/snapshot";
@@ -51,6 +52,14 @@ export async function GET(request: NextRequest) {
   // Riot, lui, est déclenché ailleurs (minuteur systemd, visite du site, ou
   // `/classement frais:true` qui appelle /api/refresh).
   const { snapshot } = buildLadderSnapshot(ladder.id, Date.now());
+
+  // Les icônes de profil vivent sur Data Dragon. On remplit le cache disque
+  // **ici**, avant le rendu : satori irait sinon les chercher lui-même, en
+  // plein chemin de rendu, sans délai de garde ni repli. Ne lève jamais — une
+  // icône absente donne une pastille d'initiale, pas une erreur.
+  await ensureProfileIcons(
+    snapshot.entries.slice(0, maxRows).map((e) => e.player.profileIconId || null),
+  );
 
   const publicUrl = (process.env.LADDER_PUBLIC_URL ?? "").replace(/\/+$/, "");
   const model = buildLadderCardModel(snapshot, {

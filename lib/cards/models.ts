@@ -2,6 +2,7 @@ import { clockTime, shortDate, winratePct } from "@/lib/format";
 import { rankShort } from "@/lib/lol";
 import type { RankingEntry, RankingSnapshot, Tier } from "@/lib/types";
 import { LADDER_CARD } from "./layout";
+import { profileIconDataUri } from "./profile-icons";
 
 /**
  * Le modèle de vue des cartes : ce que la carte dessine, ce que le texte
@@ -27,14 +28,16 @@ export interface LadderRowModel {
   wins: number;
   losses: number;
   winrate: number;
-  /** Variation de LP sur 24 h. `null` = inconnue, pas zéro. */
-  sessionLp: number | null;
-  sessionWins: number;
-  sessionLosses: number;
   /** La plus récente en dernier — l'ordre d'affichage des barres. */
   form: boolean[];
   live: boolean;
-  profileIconId: number | null;
+  /**
+   * L'icône de profil en data-URI, ou `null` si elle n'est pas encore en
+   * cache — la carte retombe alors sur une pastille d'initiale. Le
+   * remplissage du cache doit avoir eu lieu **avant** (voir
+   * `lib/cards/profile-icons.ts`).
+   */
+  icon: string | null;
 }
 
 export interface LadderCardModel {
@@ -70,14 +73,11 @@ function rowFromEntry(entry: RankingEntry): LadderRowModel {
     wins: entry.rank.wins,
     losses: entry.rank.losses,
     winrate: winratePct(entry.rank.wins, entry.rank.losses),
-    sessionLp: entry.session.lp,
-    sessionWins: entry.session.wins,
-    sessionLosses: entry.session.losses,
     // `entry.form` vient la plus récente EN PREMIER (cf. lib/types.ts) ; les
     // barres se lisent de gauche à droite, la plus récente à droite.
     form: [...entry.form].reverse(),
     live: entry.live !== null,
-    profileIconId: entry.player.profileIconId || null,
+    icon: profileIconDataUri(entry.player.profileIconId || null),
   };
 }
 
@@ -129,8 +129,7 @@ export function ladderAltText(model: LadderCardModel): string {
     const morceaux = [
       `${r.position}. ${r.name}`,
       `${r.rankShort} ${r.leaguePoints} LP`,
-      `${r.winrate} % de winrate`,
-      `${deltaLabel(r.sessionLp, " LP")} sur 24 h`,
+      `${r.winrate} % de winrate sur ${r.wins + r.losses} parties`,
     ];
     if (r.live) morceaux.push("en jeu");
     return morceaux.join(", ");
@@ -160,7 +159,7 @@ export function ladderSummary(model: LadderCardModel): string {
 
   const podium = model.rows
     .slice(0, 3)
-    .map((r) => `${r.position}. ${r.name} · ${r.rankShort} ${r.leaguePoints} LP (${deltaLabel(r.sessionLp)})`)
+    .map((r) => `${r.position}. ${r.name} · ${r.rankShort} ${r.leaguePoints} LP · ${r.winrate} %`)
     .join(" · ");
 
   const reste =

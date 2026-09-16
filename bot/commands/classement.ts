@@ -175,16 +175,20 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
     .replace(/[-:T]/g, "");
   const fichier = new AttachmentBuilder(reponse.png, {
     name: `classement-${lien.ladder.slug}-${cachet}.png`,
+    // Le texte alternatif reste, lui : invisible pour qui voit l'image, et
+    // c'est la seule chose qu'un lecteur d'écran puisse annoncer.
     description: reponse.alt.slice(0, 1024),
   });
 
   await interaction.editReply({
-    content: reponse.summary + noteFraicheur,
+    // Pas de résumé au-dessus de l'image : il répétait mot pour mot ce que la
+    // carte affiche déjà, en moins lisible. Il n'apparaît que dans le mode
+    // dégradé, où il est la seule information disponible. `noteFraicheur`
+    // reste car elle dit quelque chose que la carte ne dit pas — que le relevé
+    // demandé n'a pas eu lieu.
+    content: noteFraicheur.trim(),
     files: [fichier],
     components: [bouton],
-    // Le résumé contient des pseudos de joueurs, pas des mentions — mais si
-    // un pseudo Riot ressemblait un jour à une mention, personne ne doit être
-    // notifié par un classement.
     allowedMentions: { parse: [] },
   });
 }

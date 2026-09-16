@@ -29,17 +29,23 @@ export const LADDER_CARD = {
   padX: 40,
   /** Au-delà, la carte est illisible une fois réduite par Discord. */
   maxRows: 12,
-  /** Colonnes, en x depuis le bord gauche. */
+  /**
+   * Colonnes, en x depuis le bord gauche.
+   *
+   * Pas de bilan 24 h ici : sur un classement, ce qui compte est le rang, le
+   * taux de victoire et la forme. La variation du jour encombrait la ligne
+   * pour une information qui se lit déjà dans la forme, et qui a sa place sur
+   * la carte d'un joueur, pas dans un tableau de douze lignes.
+   */
   col: {
     position: 40,
     positionDelta: 96,
     avatar: 140,
     name: 200,
-    crest: 580,
-    lp: 636,
-    winrate: 780,
-    session: 940,
-    form: 1080,
+    crest: 620,
+    lp: 676,
+    winrate: 870,
+    form: 1070,
   },
 } as const;
 

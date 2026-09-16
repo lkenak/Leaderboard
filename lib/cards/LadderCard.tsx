@@ -3,7 +3,6 @@ import type { LadderCardModel, LadderRowModel } from "./models";
 import { stampLabel } from "./models";
 import {
   Crest,
-  DeltaText,
   FormBars,
   Frame,
   Label,
@@ -11,7 +10,6 @@ import {
   PositionDelta,
   Rail,
   SkewChip,
-  WinBar,
 } from "./primitives";
 import { COLOR, FONT, RADIUS, num, ring } from "./tokens";
 
@@ -95,9 +93,9 @@ function Row({ row }: { row: LadderRowModel }) {
         <PositionDelta delta={row.positionDelta} />
       </Cell>
 
-      {/* Pastille d'initiale plutôt que l'icône de profil : celle-ci vit sur
-          Data Dragon, et aucun `fetch` ne doit entrer dans le chemin de rendu.
-          Le cache disque des icônes arrive au lot 2. */}
+      {/* L'icône vient du cache disque rempli avant le rendu
+          (`lib/cards/profile-icons.ts`) ; à défaut, la pastille d'initiale,
+          comme `components/ui/Avatar.tsx` quand le chargement échoue. */}
       <Cell x={COL.avatar}>
         <div
           style={{
@@ -107,6 +105,7 @@ function Row({ row }: { row: LadderRowModel }) {
             width: 48,
             height: 48,
             borderRadius: RADIUS.sm,
+            overflow: "hidden",
             background: COLOR.panel3,
             boxShadow: ring(row.live ? "rgba(233, 255, 31, 0.7)" : COLOR.hair),
             fontFamily: FONT.sans,
@@ -115,7 +114,11 @@ function Row({ row }: { row: LadderRowModel }) {
             color: COLOR.ink3,
           }}
         >
-          {row.name.slice(0, 1).toLocaleUpperCase("fr")}
+          {row.icon ? (
+            <img src={row.icon} width={48} height={48} alt="" />
+          ) : (
+            row.name.slice(0, 1).toLocaleUpperCase("fr")
+          )}
         </div>
       </Cell>
 
@@ -161,32 +164,21 @@ function Row({ row }: { row: LadderRowModel }) {
         </div>
       </Cell>
 
+      {/* Le pourcentage, puis le détail en dessous. Pas de barre de proportion :
+          elle disait exactement la même chose que le pourcentage, juste
+          au-dessus, et c'est elle qui faisait déborder la colonne. */}
       <Cell x={COL.winrate}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                ...num(26, 600, row.winrate >= 50 ? COLOR.ink : COLOR.ink2),
-              }}
-            >
-              {`${row.winrate} %`}
-            </div>
-            <div style={{ display: "flex", ...num(16, 400, COLOR.ink4) }}>
-              {`${row.wins}V ${row.losses}D`}
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              ...num(26, 600, row.winrate >= 50 ? COLOR.ink : COLOR.ink2),
+            }}
+          >
+            {`${row.winrate} %`}
           </div>
-          <WinBar wins={row.wins} losses={row.losses} width={130} />
-        </div>
-      </Cell>
-
-      <Cell x={COL.session}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <DeltaText value={row.sessionLp} size={26} suffix=" LP" />
           <div style={{ display: "flex", ...num(16, 400, COLOR.ink4) }}>
-            {row.sessionWins + row.sessionLosses === 0
-              ? "aucune partie"
-              : `${row.sessionWins}V·${row.sessionLosses}D`}
+            {`${row.wins}V · ${row.losses}D`}
           </div>
         </div>
       </Cell>

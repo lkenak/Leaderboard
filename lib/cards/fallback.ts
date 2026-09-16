@@ -1,5 +1,5 @@
 import type { LadderCardModel } from "./models";
-import { deltaLabel, stampLabel } from "./models";
+import { stampLabel } from "./models";
 
 /**
  * Le mode dégradé : le même modèle, rendu en embed Discord.
@@ -36,8 +36,8 @@ export function ladderFallbackEmbed(model: LadderCardModel): EmbedCompatible {
             const live = r.live ? " · 🔴 en jeu" : "";
             return (
               `\`${String(r.position).padStart(2, " ")}\` **${r.name}** — ` +
-              `${r.rankShort} ${r.leaguePoints} LP · ${r.winrate} % · ` +
-              `${deltaLabel(r.sessionLp, " LP")} sur 24 h${live}`
+              `${r.rankShort} ${r.leaguePoints} LP · ` +
+              `${r.winrate} % (${r.wins}V ${r.losses}D)${live}`
             );
           })
           .join("\n");
