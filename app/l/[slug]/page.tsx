@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { after, connection } from "next/server";
-import { auth } from "@/lib/auth";
+import { headerContext } from "@/lib/header";
 import { buildLadderSnapshot } from "@/lib/riot/snapshot";
 import { hasKey, syncIfStale } from "@/lib/riot/refresh";
 import { getLadderBySlug } from "@/lib/db/ladders";
@@ -43,11 +43,8 @@ export default async function LadderPage({
   const ladder = getLadderBySlug(slug);
   if (!ladder) notFound();
 
-  const session = await auth();
-  const isOwner = session?.user?.id === ladder.ownerUserId;
-  const headerUser = session?.user
-    ? { name: session.user.name ?? "Discord", avatar: session.user.image ?? null }
-    : null;
+  const { user: headerUser, userId, ladders } = await headerContext();
+  const isOwner = userId === ladder.ownerUserId;
 
   const built = buildLadderSnapshot(ladder.id, now);
   const snapshot = built.snapshot;
@@ -108,8 +105,8 @@ export default async function LadderPage({
     <>
       <Header
         liveCount={liveCount}
-        ladderHref={`/l/${slug}`}
-        ladderLabel={ladder.name}
+        currentSlug={slug}
+        ladders={ladders}
         user={headerUser}
       />
       <main className="flex-1 pb-24">

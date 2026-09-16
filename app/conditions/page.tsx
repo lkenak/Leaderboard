@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
-import { auth } from "@/lib/auth";
+import { headerContext } from "@/lib/header";
 import { clockTime } from "@/lib/format";
 import { reportedNow } from "@/lib/now";
 import { Header } from "@/components/site/Header";
@@ -12,14 +12,11 @@ export const dynamic = "force-dynamic";
 export default async function TermsPage() {
   await connection();
   const now = reportedNow();
-  const session = await auth();
-  const user = session?.user
-    ? { name: session.user.name ?? "Discord", avatar: session.user.image ?? null }
-    : null;
+  const { user, ladders } = await headerContext();
 
   return (
     <>
-      <Header user={user} />
+      <Header ladders={ladders} user={user} />
       <main className="flex-1 pb-24">
         <div className="shell max-w-2xl pt-16 md:pt-20">
           <p className="label">Conditions</p>

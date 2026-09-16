@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
-import { auth } from "@/lib/auth";
+import { headerContext } from "@/lib/header";
 import { getLadderBySlug, listMembers } from "@/lib/db/ladders";
 import { getPlayer, listGames, listSamples } from "@/lib/db/riot-players";
 import { hasKey, refreshIntervalMs } from "@/lib/riot/refresh";
@@ -41,15 +41,13 @@ export default async function LadderSettingsPage({
   const ladder = getLadderBySlug(slug);
   if (!ladder) notFound();
 
-  const session = await auth();
-  if (!session?.user) redirect(`/login?from=/l/${slug}/settings`);
+  const { user: headerUser, userId, ladders } = await headerContext();
+  if (!userId) redirect(`/login?from=/l/${slug}/settings`);
 
-  const headerUser = { name: session.user.name ?? "Discord", avatar: session.user.image ?? null };
-
-  if (session.user.id !== ladder.ownerUserId) {
+  if (userId !== ladder.ownerUserId) {
     return (
       <>
-        <Header ladderHref={`/l/${slug}`} ladderLabel={ladder.name} user={headerUser} />
+        <Header currentSlug={slug} ladders={ladders} user={headerUser} />
         <main className="flex-1 pb-24">
           <div className="shell max-w-md pt-24">
             <h1 className="text-[1.75rem] font-bold tracking-[-0.02em] text-ink">
@@ -88,7 +86,7 @@ export default async function LadderSettingsPage({
 
   return (
     <>
-      <Header ladderHref={`/l/${slug}`} ladderLabel={ladder.name} user={headerUser} />
+      <Header currentSlug={slug} ladders={ladders} user={headerUser} />
       <main className="flex-1 pb-24">
         <div className="shell pt-12">
           <div className="flex flex-wrap items-end justify-between gap-4">

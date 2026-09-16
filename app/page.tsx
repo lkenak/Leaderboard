@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { auth } from "@/lib/auth";
+import { primaryLadderFor } from "@/lib/db/users";
 import { clockTime } from "@/lib/format";
 import { reportedNow } from "@/lib/now";
 import { Header } from "@/components/site/Header";
@@ -20,7 +21,13 @@ export default async function Home() {
   await connection();
   const now = reportedNow();
   const session = await auth();
-  if (session?.user) redirect("/ladders");
+  if (session?.user) {
+    /* Connecté, on atterrit sur du classement, pas sur une page de gestion :
+       son ladder d'accueil, ou `/ladders` s'il n'en a encore aucun (la page
+       propose alors d'en créer un). */
+    const home = primaryLadderFor(session.user.id);
+    redirect(home ? `/l/${home.slug}` : "/ladders");
+  }
 
   return (
     <>

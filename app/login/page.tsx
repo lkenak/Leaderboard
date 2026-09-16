@@ -20,7 +20,9 @@ export default async function LoginPage({
   const now = reportedNow();
   const session = await auth();
   const { from } = await searchParams;
-  if (session?.user) redirect(from || "/ladders");
+  // `/` décide où atterrir (le ladder d'accueil), pour ne pas dupliquer ici la
+  // règle de choix du ladder.
+  if (session?.user) redirect(from || "/");
 
   return (
     <>

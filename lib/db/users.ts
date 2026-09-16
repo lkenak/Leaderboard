@@ -275,3 +275,21 @@ export function laddersForUser(userId: string): {
 
   return { owned: owned.map(toRef), appearingIn: appearingIn.map(toRef) };
 }
+
+/**
+ * Ladder d'accueil d'un utilisateur — celui sur lequel on l'envoie à la
+ * connexion, parce que c'est le classement qu'il vient voir.
+ *
+ * Règle : parmi ses propres ladders, celui qui suit le plus de comptes (le
+ * plus « vivant » : un ladder de test à deux comptes ne passe pas devant
+ * celui du groupe) ; à défaut, un ladder où il apparaît sans l'avoir créé.
+ * `laddersForUser` rend déjà du plus récent au plus ancien et le tri est
+ * stable, donc deux ladders de même taille se départagent par la récence.
+ * `null` quand il n'en a aucun — l'appelant l'envoie alors vers `/ladders`.
+ */
+export function primaryLadderFor(userId: string): LadderRef | null {
+  const { owned, appearingIn } = laddersForUser(userId);
+  const pool = owned.length > 0 ? owned : appearingIn;
+  if (pool.length === 0) return null;
+  return [...pool].sort((a, b) => b.memberCount - a.memberCount)[0];
+}

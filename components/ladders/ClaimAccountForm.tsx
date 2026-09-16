@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
 import { REGIONS } from "@/lib/riot/routing";
-import { claimAccountAction } from "@/app/ladders/actions";
+import { claimAccountAction } from "@/app/profil/actions";
 import type { ActionResult } from "@/app/l/[slug]/settings/actions";
 
 /**

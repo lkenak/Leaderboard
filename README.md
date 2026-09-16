@@ -49,10 +49,16 @@ d'API : **[`lib/riot/README.md`](lib/riot/README.md)**.
 
 ## Ce qui est là
 
-**`/login`** : connexion Discord (Auth.js). **`/ladders`** : les ladders
-qu'on possède, ceux où l'on apparaît (via les comptes Riot déclarés comme
-siens dans la même page — sans vérification de propriété), et **`/ladders/new`**
-pour en créer un.
+**`/login`** : connexion Discord (Auth.js). Une fois connecté, **`/`** renvoie
+sur le classement de son *ladder d'accueil* — celui qui suit le plus de
+comptes parmi les siens : on atterrit sur du contenu, pas sur une page de
+gestion. Le sélecteur de l'en-tête permet de passer d'un ladder à l'autre.
+
+**`/ladders`** : le hub — ses ladders et ceux où l'on apparaît, en cartes
+avec aperçu du classement (leader, palier, LP, comptes en jeu), plus
+**`/ladders/new`** pour en créer un. **`/profil`** : ses comptes Riot déclarés
+(sans vérification de propriété), dont celui marqué **principal** — le seul
+auquel le futur bot Discord reliera l'utilisateur.
 
 **`/l/[slug]/settings`** : réglages d'un ladder, réservés à son propriétaire.
 Un champ pour coller un Riot ID, la liste des comptes avec leur rang relevé,
@@ -80,11 +86,14 @@ mémorisées dans le navigateur, par ladder.
 ```
 app/l/[slug]/page.tsx     classement public d'un ladder — état vide si aucun compte
 app/l/[slug]/settings/    réglages du ladder + Server Actions, réservé au propriétaire
-app/ladders/              « mes ladders » (possédés + découverts) et création
+app/ladders/              hub : cartes des ladders (possédés + découverts) et création
+app/profil/               comptes Riot déclarés, choix du compte principal
+app/page.tsx              landing hors connexion ; connecté, redirige vers le ladder d'accueil
 app/login/                connexion Discord
 app/api/auth/             route handler Auth.js
 app/api/refresh/          déclenchement d'un relevé par cron
-proxy.ts                  garde les routes /ladders* derrière une session (Edge Runtime)
+lib/header.ts             contexte de l'en-tête (session + ladders du sélecteur)
+proxy.ts                  garde /ladders* et /profil derrière une session (Edge Runtime)
 instrumentation.ts        migrations DB au démarrage + proxy d'entreprise, s'il y en a un
 components/ranking/       en-tête, podium, barre d'outils, tableau, ligne dépliée
 components/settings/      formulaire d'ajout, relevé manuel

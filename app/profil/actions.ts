@@ -14,8 +14,9 @@ import type { ActionResult } from "@/app/l/[slug]/settings/actions";
 
 /**
  * « Mes comptes » : déclaration libre, aucune vérification de propriété (voir
- * README du projet) — sert uniquement à faire apparaître les ladders où ce
- * compte est membre dans la page « mes ladders » de l'utilisateur connecté.
+ * README du projet). Deux usages : faire apparaître dans « où j'apparais »
+ * les ladders où ce compte est suivi, et désigner le compte principal auquel
+ * le futur bot Discord reliera l'utilisateur.
  */
 export async function claimAccountAction(
   _prev: ActionResult | null,
@@ -45,6 +46,7 @@ export async function claimAccountAction(
     throw err;
   }
 
+  revalidatePath("/profil");
   revalidatePath("/ladders");
   return { ok: true, message: `${gameName}#${tagLine} ajouté à tes comptes.` };
 }
@@ -53,6 +55,7 @@ export async function unclaimAccountAction(form: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user) return;
   unclaimRiotAccount(session.user.id, Number(form.get("id")));
+  revalidatePath("/profil");
   revalidatePath("/ladders");
 }
 
@@ -60,5 +63,5 @@ export async function setMainAccountAction(form: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user) return;
   setMainRiotAccount(session.user.id, Number(form.get("id")));
-  revalidatePath("/ladders");
+  revalidatePath("/profil");
 }

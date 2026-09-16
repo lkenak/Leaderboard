@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { signOutAction } from "@/app/actions/auth";
+import { Popover } from "@/components/ui/Popover";
 import { Logo } from "./Logo";
 
 export interface HeaderUser {
@@ -11,24 +12,33 @@ export interface HeaderUser {
   avatar: string | null;
 }
 
+export interface HeaderLadder {
+  slug: string;
+  name: string;
+  owned: boolean;
+}
+
 /**
  * En-tête collant. Le fond ne devient opaque qu'après 8 px de défilement : au
  * repos, l'en-tête est posé sur la page ; en défilement, il s'en détache par un
  * filet et un fond, sans flou — le flou brouille le tableau qui passe dessous.
  *
- * Plus de nav figée sur « le » classement : le site est multi-ladder, donc le
- * seul lien constant est « Mes ladders », et le ladder consulté s'affiche
- * comme contexte de page plutôt que comme item de nav cliquable.
+ * Le site étant multi-ladder et l'accueil étant un classement, la nav porte un
+ * **sélecteur de ladder** plutôt qu'un lien figé : c'est ce qui permet
+ * d'atterrir sur du contenu et de passer d'un ladder à l'autre sans repasser
+ * par une page de gestion. La gestion vit derrière « Tous mes ladders » et
+ * « Mes comptes Riot », en bas du menu.
  */
 export function Header({
   liveCount,
-  ladderHref,
-  ladderLabel,
+  currentSlug,
+  ladders = [],
   user,
 }: {
   liveCount?: number;
-  ladderHref?: string;
-  ladderLabel?: string;
+  /** Slug du ladder consulté, s'il y en a un — surligné dans le sélecteur. */
+  currentSlug?: string;
+  ladders?: HeaderLadder[];
   user?: HeaderUser | null;
 }) {
   const [scrolled, setScrolled] = useState(false);
@@ -41,6 +51,10 @@ export function Header({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const current = ladders.find((l) => l.slug === currentSlug);
+  const itemClass =
+    "flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-[0.8125rem] transition-colors duration-150";
+
   return (
     <header
       className={cn(
@@ -50,32 +64,74 @@ export function Header({
           : "border-b border-transparent",
       )}
     >
-      <div className="shell flex h-16 items-center gap-6">
+      <div className="shell flex h-16 items-center gap-4">
         <Link href="/" className="rounded-xs" aria-label="SOLOQ/LADDER — accueil">
           <Logo />
         </Link>
 
-        {ladderHref && (
-          <Link
-            href={ladderHref}
-            aria-current="page"
-            className="relative hidden rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink md:block"
-          >
-            {ladderLabel}
-            <span className="absolute inset-x-3 -bottom-px h-[2px] bg-acid" />
-          </Link>
+        {user && (
+          <nav className="hidden items-center gap-2 md:flex" aria-label="Navigation principale">
+            {ladders.length > 0 ? (
+              <Popover
+                align="left"
+                title="Changer de ladder"
+                active={Boolean(current)}
+                label={
+                  <span className="max-w-[18ch] truncate">
+                    {current ? current.name : "Mes ladders"}
+                  </span>
+                }
+              >
+                {(close) => (
+                  <>
+                    {ladders.map((l) => (
+                      <Link
+                        key={l.slug}
+                        href={`/l/${l.slug}`}
+                        onClick={close}
+                        className={cn(
+                          itemClass,
+                          l.slug === currentSlug
+                            ? "bg-acid/10 text-acid"
+                            : "text-ink-2 hover:bg-panel-3 hover:text-ink",
+                        )}
+                      >
+                        <span className="truncate">{l.name}</span>
+                        {!l.owned && (
+                          <span className="num ml-auto shrink-0 text-[0.5625rem] tracking-[0.08em] text-ink-4">
+                            INVITÉ
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                    <div className="my-1 h-px bg-hair" />
+                    <Link
+                      href="/ladders"
+                      onClick={close}
+                      className={cn(itemClass, "text-ink-3 hover:bg-panel-3 hover:text-ink")}
+                    >
+                      Tous mes ladders
+                    </Link>
+                    <Link
+                      href="/profil"
+                      onClick={close}
+                      className={cn(itemClass, "text-ink-3 hover:bg-panel-3 hover:text-ink")}
+                    >
+                      Mes comptes Riot
+                    </Link>
+                  </>
+                )}
+              </Popover>
+            ) : (
+              <Link
+                href="/ladders"
+                className="rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
+              >
+                Mes ladders
+              </Link>
+            )}
+          </nav>
         )}
-
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
-          {user && (
-            <Link
-              href="/ladders"
-              className="rounded-xs px-3 py-2 text-[0.8125rem] font-medium text-ink-3 transition-colors duration-150 hover:text-ink"
-            >
-              Mes ladders
-            </Link>
-          )}
-        </nav>
 
         <div className="ml-auto flex items-center gap-2">
           {liveCount !== undefined && (
@@ -150,27 +206,42 @@ export function Header({
       {open && (
         <nav className="border-t border-hair bg-base md:hidden" aria-label="Navigation principale">
           <ul className="shell flex flex-col py-2">
-            {ladderHref && (
-              <li>
-                <Link
-                  href={ladderHref}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center justify-between py-3 text-[0.9375rem] font-medium text-ink"
-                >
-                  {ladderLabel}
-                  <span className="size-1.5 rounded-full bg-acid" />
-                </Link>
-              </li>
-            )}
             {user ? (
               <>
+                {ladders.map((l) => (
+                  <li key={l.slug}>
+                    <Link
+                      href={`/l/${l.slug}`}
+                      onClick={() => setOpen(false)}
+                      className={cn(
+                        "flex items-center justify-between py-3 text-[0.9375rem] font-medium",
+                        l.slug === currentSlug ? "text-ink" : "text-ink-2",
+                      )}
+                    >
+                      <span className="truncate">{l.name}</span>
+                      {l.slug === currentSlug && (
+                        <span className="size-1.5 shrink-0 rounded-full bg-acid" />
+                      )}
+                    </Link>
+                  </li>
+                ))}
+                <li className="my-1 h-px bg-hair" aria-hidden />
                 <li>
                   <Link
                     href="/ladders"
                     onClick={() => setOpen(false)}
-                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink"
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-3"
                   >
-                    Mes ladders
+                    Tous mes ladders
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/profil"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-3"
+                  >
+                    Mes comptes Riot
                   </Link>
                 </li>
                 <li>

@@ -25,5 +25,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/ladders", "/ladders/:path*"],
+  matcher: ["/ladders", "/ladders/:path*", "/profil"],
 };
