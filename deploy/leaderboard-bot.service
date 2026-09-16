@@ -1,0 +1,53 @@
+# /etc/systemd/system/leaderboard-bot.service
+#
+#   sudo systemctl enable --now leaderboard-bot
+#   sudo journalctl -u leaderboard-bot -f
+#
+[Unit]
+Description=SOLOQ/LADDER — bot Discord
+# Le bot refuse de démarrer tant que les migrations de ce déploiement ne sont
+# pas appliquées (voir bot/db.ts), et c'est le service web qui les applique à
+# son démarrage. Le lancer avant lui n'apporte rien et remplit le journal
+# d'échecs au démarrage de la machine.
+After=network-online.target leaderboard.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=leaderboard
+Group=leaderboard
+# Le dépôt, et non /srv/leaderboard/current : la sortie standalone de Next ne
+# contient ni bot/ ni discord.js — son traçage ne suit que les imports réels
+# depuis app/, et rien dans app/ n'importe le bot. Le `npm ci` du déploiement
+# installe déjà tout ce qu'il faut ici.
+WorkingDirectory=/srv/leaderboard/repo
+# Mêmes secrets que le service web : le bot lit la même base et appelle
+# /api/refresh avec le même REFRESH_SECRET.
+EnvironmentFile=/etc/leaderboard.env
+# tsx plutôt qu'un `node bot/index.ts` : le code partagé (lib/db/*,
+# lib/riot/snapshot.ts) s'importe en `@/...`, et le décapage de types natif de
+# Node ne résout pas les alias de tsconfig.
+ExecStart=/srv/leaderboard/repo/node_modules/.bin/tsx bot/index.ts
+Restart=always
+# 5 s et non 3 : c'est aussi le rythme auquel le bot réessaie quand le schéma
+# est encore en retard, juste après un déploiement.
+RestartSec=5
+
+# — Durcissement : identique au service web —
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+# Obligatoire même si le bot ne faisait que lire : en mode WAL, SQLite écrit
+# dans ladder.sqlite-wal et -shm à chaque lecture. Sans ce chemin, le bot
+# échoue en SQLITE_CANTOPEN sur une base pourtant parfaitement lisible.
+ReadWritePaths=/var/lib/leaderboard
+# ProtectSystem=strict rend /srv/leaderboard/repo en lecture seule ; autant
+# que tsx n'essaie même pas d'y écrire son cache de transpilation.
+Environment=TSX_DISABLE_CACHE=1
+
+[Install]
+WantedBy=multi-user.target

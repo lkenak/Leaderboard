@@ -5,4 +5,4 @@
 # fin de déploiement — sans mot de passe, sinon aucune automatisation
 # (GitHub Actions, cron) ne peut fonctionner. Portée réduite au strict
 # nécessaire : uniquement cette commande, uniquement ce service.
-leaderboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart leaderboard
+leaderboard ALL=(root) NOPASSWD: /usr/bin/systemctl restart leaderboard, /usr/bin/systemctl restart leaderboard-bot

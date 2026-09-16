@@ -23,6 +23,34 @@ const DB_PATH = join(DATA_DIR, "ladder.sqlite");
 const MIGRATIONS_DIR = join(process.cwd(), "db", "migrations");
 
 let instance: Database.Database | null = null;
+let migrationsEnabled = true;
+
+/**
+ * À appeler avant le premier `getDb()`, et seulement par le bot Discord.
+ *
+ * Exactement **un** processus doit jouer les migrations : c'est le serveur
+ * Next, au démarrage (`instrumentation.ts`). Le bot s'attache à une base déjà
+ * migrée. Deux raisons, pas une :
+ *
+ *  - deux `migrate()` concurrents au redémarrage du déploiement peuvent entrer
+ *    dans la transaction du même fichier ;
+ *  - le bot tourne depuis le dépôt, donc son `db/migrations` est celui du
+ *    commit tout juste tiré, alors que le site sert peut-être encore le
+ *    précédent. Le laisser migrer, c'est laisser le bot pousser un schéma en
+ *    avance sur le code qui répond aux visiteurs.
+ *
+ * Elle lève plutôt que de se taire si la base est déjà ouverte : un futur
+ * module qui appellerait `getDb()` à l'import ferait sinon de cet appel un
+ * no-op invisible, et le bot migrerait quand même.
+ */
+export function disableMigrations(): void {
+  if (instance) {
+    throw new Error(
+      "disableMigrations() appelé après getDb() : la base est déjà ouverte et migrée.",
+    );
+  }
+  migrationsEnabled = false;
+}
 
 function migrate(db: Database.Database): void {
   db.exec(
@@ -63,10 +91,13 @@ export function getDb(): Database.Database {
   // complètement lecteurs et écrivains, et un rendu de page attendrait
   // derrière un cycle de synchro de plusieurs secondes.
   db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
+  // 10 s et non 5 : depuis le bot Discord, deux processus écrivent dans ce
+  // fichier. Les écritures du bot sont courtes, celles de la synchro Riot
+  // peuvent tenir plusieurs secondes — c'est derrière celles-là qu'on attend.
+  db.pragma("busy_timeout = 10000");
   db.pragma("foreign_keys = ON");
 
-  migrate(db);
+  if (migrationsEnabled) migrate(db);
 
   instance = db;
   return db;
@@ -77,7 +108,7 @@ export function openDbAt(path: string): Database.Database {
   mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
   db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
+  db.pragma("busy_timeout = 10000");
   db.pragma("foreign_keys = ON");
   migrate(db);
   return db;

@@ -154,7 +154,12 @@ export function setMainRiotAccount(userId: string, id: number): void {
     db.prepare("UPDATE user_riot_accounts SET is_main = 0 WHERE user_id = ?").run(userId);
     db.prepare("UPDATE user_riot_accounts SET is_main = 1 WHERE id = ?").run(id);
   });
-  run();
+  // `.immediate()` et non `run()` : une transaction DEFERRED qui lit avant
+  // d'écrire doit promouvoir son verrou, et SQLite refuse alors la promotion
+  // **sans honorer `busy_timeout`**. Depuis le bot Discord, un second
+  // processus écrit dans ce fichier : la promotion peut échouer pour de bon.
+  // Prendre le verrou d'écriture dès le BEGIN rend l'attente normale.
+  run.immediate();
 }
 
 export function unclaimRiotAccount(userId: string, id: number): void {
@@ -176,7 +181,7 @@ export function unclaimRiotAccount(userId: string, id: number): void {
       ).run(userId);
     }
   });
-  run();
+  run.immediate();
 }
 
 export function listClaimedAccounts(userId: string): ClaimedAccount[] {

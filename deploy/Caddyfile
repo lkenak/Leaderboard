@@ -8,6 +8,15 @@
 
 ladder.exemple.fr {
 	encode zstd gzip
+
+	# Les routes internes ne sont appelées que depuis 127.0.0.1, par le bot
+	# Discord (rendu des cartes). Les exposer au monde n'a aucun usage, et un
+	# 404 vaut mieux qu'un 401 : il ne confirme même pas leur existence. Le
+	# secret Bearer côté route reste la seconde ligne de défense, pas la
+	# première.
+	@interne path /api/internal/*
+	respond @interne 404
+
 	reverse_proxy 127.0.0.1:3000
 
 	# Next gère lui-même le cache de ses assets versionnés ; on ne fait que

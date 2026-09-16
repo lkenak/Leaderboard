@@ -10,14 +10,20 @@
     "champions:sync": "node --use-env-proxy scripts/sync-champions.mjs",
     "riot:check": "node --use-env-proxy --env-file-if-exists=.env.local scripts/riot-check.mjs",
     "migrate:legacy": "node --env-file-if-exists=.env.local scripts/migrate-store-to-sqlite.mjs",
-    "serve": "./deploy/serve.sh"
+    "serve": "./deploy/serve.sh",
+    "bot": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs bot/index.ts",
+    "bot:dev": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs watch bot/index.ts",
+    "bot:commands": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs bot/register-commands.ts",
+    "prebuild": "node scripts/check-card-tokens.mjs"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
+    "discord.js": "^14.25.0",
     "next": "16.3.5",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "^4.20.0",
     "undici": "^8.10.2"
   },
   "devDependencies": {

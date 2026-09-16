@@ -1,0 +1,19 @@
+General Sans — Indian Type Foundry (ITF)
+
+Copyright 2017-2021 Indian Type Foundry. All rights reserved.
+Conception : Frode Helland.
+« General » est une marque déposée de l'Indian Type Foundry.
+
+Distribué par Fontshare sous l'ITF Free Font Licence.
+Texte de référence : https://fontshare.com/terms
+Fonderie : https://indiantypefoundry.com
+
+Mention de licence embarquée dans les fichiers de police (name ID 13) :
+
+  This Font Software is protected under domestic and international
+  trademark and copyright law. You agree to identify the ITF fonts by
+  name and credit the ITF's ownership of the trademarks and copyrights
+  in any design or production credits.
+
+Les .ttf de ce dossier sont les .woff2 décompressés (voir ../README.md) :
+mêmes fichiers, même licence.

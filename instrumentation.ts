@@ -20,6 +20,17 @@ export async function register() {
   const { getDb } = await import("@/lib/db/client");
   getDb();
 
+  // Préchauffe le moteur de rendu des cartes Discord : le tout premier rendu
+  // paie l'instanciation des wasm de satori et l'analyse des six polices,
+  // soit 400 à 700 ms. Les payer ici, hors requête, plutôt que de les
+  // infliger à la première commande `/classement` de la journée.
+  const { warmUpCards } = await import("@/lib/cards/render");
+  warmUpCards().catch((err) => {
+    // Sans conséquence pour le site : seules les cartes en pâtissent, et
+    // elles ont un repli en embed texte. Mais il faut que ça se voie.
+    console.warn("[cartes] préchauffage échoué :", err instanceof Error ? err.message : err);
+  });
+
   if (!process.env.HTTP_PROXY && !process.env.HTTPS_PROXY) return;
 
   const { setGlobalDispatcher, EnvHttpProxyAgent } = await import("undici");

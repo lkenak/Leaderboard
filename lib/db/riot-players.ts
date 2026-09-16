@@ -228,7 +228,10 @@ export function pruneSamples(puuid: string, now = Date.now()): void {
       }
     }
   });
-  run();
+  // Verrou d'écriture dès le BEGIN : voir `setMainRiotAccount`. Uniforme sur
+  // toutes les transactions d'écriture, pour n'avoir pas à se demander
+  // lesquelles lisent d'abord.
+  run.immediate();
 }
 
 /* ── Parties ──────────────────────────────────────────────────────────────── */
@@ -292,7 +295,7 @@ export function upsertGames(puuid: string, games: GameRecord[]): void {
       stmt.run(puuid, g.id, g.championId, g.championName, g.role, g.win ? 1 : 0, g.kills, g.deaths, g.assists, g.lpDelta, g.durationSec, g.endedAt, g.cs, g.visionScore);
     }
   });
-  run(games);
+  run.immediate(games);
 }
 
 /** Met à jour un delta de LP déjà connu (remplissage par encadrement de relevés). */
@@ -312,7 +315,7 @@ export function pruneGames(puuid: string): void {
   const run = db.transaction(() => {
     for (const g of excess) del.run(puuid, g.id);
   });
-  run();
+  run.immediate();
 }
 
 /* ── Partie en cours ──────────────────────────────────────────────────────── */

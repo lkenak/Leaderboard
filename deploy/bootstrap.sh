@@ -127,6 +127,11 @@ fi
 # ── 5. systemd et environnement ────────────────────────────────────────────
 say "Services systemd"
 install -m 644 "$SRV/repo/deploy/leaderboard.service" /etc/systemd/system/
+# Le bot Discord a son propre service : un rebuild du site ne doit pas le
+# couper, et un plantage du bot ne doit pas emporter le site. Il n'est pas
+# activé ici — il lui faut d'abord DISCORD_BOT_TOKEN dans /etc/leaderboard.env
+# (voir la fin de ce script).
+install -m 644 "$SRV/repo/deploy/leaderboard-bot.service" /etc/systemd/system/
 install -m 644 "$SRV/repo/deploy/leaderboard-refresh.service" /etc/systemd/system/
 install -m 644 "$SRV/repo/deploy/leaderboard-refresh.timer" /etc/systemd/system/
 systemctl daemon-reload
@@ -161,7 +166,7 @@ ok "règle installée et validée"
 
 printf '\n\033[1;32m═══ Préparation terminée ═══\033[0m\n\n'
 cat <<'NEXT'
-Il reste quatre choses, dans cet ordre :
+Il reste cinq choses, dans cet ordre :
 
   1. L'application Discord — https://discord.com/developers/applications,
      redirect URI https://<ton-domaine>/api/auth/callback/discord :
@@ -180,6 +185,14 @@ Il reste quatre choses, dans cet ordre :
        sudo cp /srv/leaderboard/repo/deploy/Caddyfile /etc/caddy/Caddyfile
        sudo nano /etc/caddy/Caddyfile      # remplacer ladder.exemple.fr
        sudo systemctl reload caddy
+
+  5. Le bot Discord (facultatif — le site fonctionne sans). Onglet « Bot » de
+     la même application qu'à l'étape 1, puis :
+       sudo nano /etc/leaderboard.env     # DISCORD_BOT_TOKEN, DISCORD_APPLICATION_ID,
+                                          # LADDER_PUBLIC_URL
+       sudo -u leaderboard bash -c 'cd /srv/leaderboard/repo && npm run bot:commands'
+       sudo systemctl enable --now leaderboard-bot
+       sudo journalctl -u leaderboard-bot -n 20     # attendu : « connecté en tant que … »
 
 Et n'oublie pas d'ouvrir 80 et 443 côté console Oracle (Security List du subnet
 et, s'il en existe un, le Network Security Group) : le pare-feu local est fait,

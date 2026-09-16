@@ -33,6 +33,20 @@ sudo systemctl restart leaderboard
 for i in $(seq 1 20); do
   if curl --fail --silent --show-error -o /dev/null http://127.0.0.1:3000/login; then
     echo "déployé — /login répond (après ${i}s)"
+    # Le bot repart seulement maintenant. Il refuse de démarrer tant que les
+    # migrations de ce déploiement ne sont pas appliquées, et c'est le service
+    # web qui les applique à son démarrage. Si le site n'avait pas répondu, on
+    # sort en échec sans toucher au bot : il continue de tourner sur l'ancien
+    # code contre l'ancien schéma, ce qui est cohérent.
+    #
+    # Facultatif, et testé plutôt que supposé : le bot n'est pas installé sur
+    # toutes les machines, et il reste désactivé tant qu'il n'a pas de token.
+    # Un `systemctl restart` sur une unité absente ferait échouer le script
+    # (set -e) alors que le site, lui, est déjà en ligne.
+    if systemctl is-enabled --quiet leaderboard-bot 2>/dev/null; then
+      sudo systemctl restart leaderboard-bot
+      echo "bot Discord redémarré"
+    fi
     exit 0
   fi
   sleep 1
