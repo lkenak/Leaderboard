@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { DuplicateClaimError, claimRiotAccount, unclaimRiotAccount } from "@/lib/db/users";
+import {
+  DuplicateClaimError,
+  claimRiotAccount,
+  setMainRiotAccount,
+  unclaimRiotAccount,
+} from "@/lib/db/users";
 import { REGIONS } from "@/lib/riot/routing";
 import type { Region } from "@/lib/types";
 import type { ActionResult } from "@/app/l/[slug]/settings/actions";
@@ -48,5 +53,12 @@ export async function unclaimAccountAction(form: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user) return;
   unclaimRiotAccount(session.user.id, Number(form.get("id")));
+  revalidatePath("/ladders");
+}
+
+export async function setMainAccountAction(form: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user) return;
+  setMainRiotAccount(session.user.id, Number(form.get("id")));
   revalidatePath("/ladders");
 }

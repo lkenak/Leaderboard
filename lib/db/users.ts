@@ -99,6 +99,9 @@ export interface ClaimedAccount {
   puuid: string | null;
   resolveError: string | null;
   addedAt: number;
+  /** Le compte qui représente l'utilisateur (un seul) — voir la migration
+   *  0003 : c'est celui auquel le futur bot Discord le reliera. */
+  isMain: boolean;
   /** Renseignés une fois le compte résolu par la synchronisation. */
   profileIconId: number | null;
   summonerLevel: number | null;
@@ -124,28 +127,68 @@ export function claimRiotAccount(
     .get(userId, input.region, input.gameName, input.tagLine);
   if (dup) throw new DuplicateClaimError(`${input.gameName}#${input.tagLine}`);
 
+  // Le premier compte déclaré devient le principal : sans ça, un utilisateur
+  // qui n'en déclare qu'un n'aurait aucun compte principal, et le bot n'aurait
+  // rien à quoi le relier.
+  const { n } = db
+    .prepare<[string], { n: number }>(
+      "SELECT COUNT(*) AS n FROM user_riot_accounts WHERE user_id = ?",
+    )
+    .get(userId)!;
+
   db.prepare(
-    `INSERT INTO user_riot_accounts (user_id, region, game_name, tag_line, added_at)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(userId, input.region, input.gameName, input.tagLine, Date.now());
+    `INSERT INTO user_riot_accounts (user_id, region, game_name, tag_line, is_main, added_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(userId, input.region, input.gameName, input.tagLine, n === 0 ? 1 : 0, Date.now());
+}
+
+/** Désigne le compte principal, et retire ce statut aux autres dans la même
+ *  transaction — c'est ce qui garantit qu'il n'y en a jamais deux. */
+export function setMainRiotAccount(userId: string, id: number): void {
+  const db = getDb();
+  const run = db.transaction(() => {
+    const owned = db
+      .prepare("SELECT id FROM user_riot_accounts WHERE id = ? AND user_id = ?")
+      .get(id, userId);
+    if (!owned) return;
+    db.prepare("UPDATE user_riot_accounts SET is_main = 0 WHERE user_id = ?").run(userId);
+    db.prepare("UPDATE user_riot_accounts SET is_main = 1 WHERE id = ?").run(id);
+  });
+  run();
 }
 
 export function unclaimRiotAccount(userId: string, id: number): void {
-  getDb()
-    .prepare("DELETE FROM user_riot_accounts WHERE id = ? AND user_id = ?")
-    .run(id, userId);
+  const db = getDb();
+  const run = db.transaction(() => {
+    const row = db
+      .prepare<[number, string], { is_main: number }>(
+        "SELECT is_main FROM user_riot_accounts WHERE id = ? AND user_id = ?",
+      )
+      .get(id, userId);
+    if (!row) return;
+    db.prepare("DELETE FROM user_riot_accounts WHERE id = ? AND user_id = ?").run(id, userId);
+    // Retirer son compte principal ne doit pas laisser l'utilisateur sans :
+    // le plus ancien des comptes restants prend la place.
+    if (row.is_main === 1) {
+      db.prepare(
+        `UPDATE user_riot_accounts SET is_main = 1
+         WHERE id = (SELECT id FROM user_riot_accounts WHERE user_id = ? ORDER BY added_at ASC LIMIT 1)`,
+      ).run(userId);
+    }
+  });
+  run();
 }
 
 export function listClaimedAccounts(userId: string): ClaimedAccount[] {
   const rows = getDb()
     .prepare(
       `SELECT ura.id, ura.region, ura.game_name, ura.tag_line, ura.puuid,
-              ura.resolve_error, ura.added_at,
+              ura.resolve_error, ura.added_at, ura.is_main,
               rp.profile_icon_id, rp.summoner_level
        FROM user_riot_accounts ura
        LEFT JOIN riot_players rp ON rp.puuid = ura.puuid
        WHERE ura.user_id = ?
-       ORDER BY ura.added_at ASC`,
+       ORDER BY ura.is_main DESC, ura.added_at ASC`,
     )
     .all(userId) as Array<{
     id: number;
@@ -155,6 +198,7 @@ export function listClaimedAccounts(userId: string): ClaimedAccount[] {
     puuid: string | null;
     resolve_error: string | null;
     added_at: number;
+    is_main: number;
     profile_icon_id: number | null;
     summoner_level: number | null;
   }>;
@@ -167,6 +211,7 @@ export function listClaimedAccounts(userId: string): ClaimedAccount[] {
     puuid: r.puuid,
     resolveError: r.resolve_error,
     addedAt: r.added_at,
+    isMain: r.is_main === 1,
     profileIconId: r.profile_icon_id,
     summonerLevel: r.summoner_level,
   }));
