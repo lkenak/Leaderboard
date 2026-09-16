@@ -33,13 +33,20 @@ export function Podium({ entries }: { entries: RankingEntry[] }) {
           )}
         >
           <span className="grain-layer" />
+          {/* Même traitement que l'emblème du `PageHeader`, et pour la même
+              raison : les fichiers sont en 16:9 (1280x720 ou 2560x1440), le
+              crest posé au centre d'un cadre presque vide. Dans une boîte
+              carrée sans `object-cover`, un <img> applique `fill` par défaut
+              et le dessin ressort étiré — étroit et haut. `object-cover` rogne
+              les marges vides au lieu de déformer ; `object-contain` ferait
+              entrer tout le cadre vide et réduirait le crest au quart. */}
           <Image
             src={emblemSrc(entry.rank.tier)}
             alt=""
-            width={300}
-            height={300}
+            width={409}
+            height={230}
             aria-hidden
-            className="pointer-events-none absolute -top-9 -right-11 size-[230px] opacity-[0.19] select-none"
+            className="pointer-events-none absolute -top-9 -right-11 size-[230px] object-cover opacity-[0.19] select-none"
           />
 
           <div className="relative p-5">
