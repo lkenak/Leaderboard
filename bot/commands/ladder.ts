@@ -41,9 +41,15 @@ import { messageEtat, resoudre } from "../liens";
  * d'ici là le message de refus doit le dire, sinon il est incompréhensible.
  *
  * `setDefaultMemberPermissions` **masque** la commande aux non-administrateurs,
- * la vérification en code la **refuse** : les permissions par défaut sont
- * réécrivables par les administrateurs du serveur, elles ne protègent rien
- * toutes seules. Même raisonnement que `guardOwner` côté site.
+ * et la vérification en tête d'`execute` la **refuse** : les permissions par
+ * défaut sont réécrivables depuis Paramètres → Intégrations, elles ne
+ * protègent rien toutes seules. Même raisonnement que `guardOwner` côté site.
+ *
+ * À noter pour qui cherche pourquoi la commande n'apparaît pas : le masquage
+ * porte sur **Gérer le serveur**, et Discord considère qu'Administrateur
+ * couvre tout. Ne pas la voir en étant administrateur veut dire que le client
+ * n'a pas rafraîchi sa liste — les autres commandes, elles, n'étant pas
+ * masquées, apparaissent quand même.
  */
 
 export const data = new SlashCommandBuilder()
@@ -178,6 +184,22 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const repondre = async (content: string): Promise<void> => {
     await interaction.reply({ content, flags: MessageFlags.Ephemeral });
   };
+
+  /* La vérification que `setDefaultMemberPermissions` ne fait pas.
+   *
+   * Ce garde-fou manquait, alors que l'en-tête de ce fichier affirmait le
+   * contraire. `setDefaultMemberPermissions` ne fait que **masquer** la
+   * commande, et un administrateur du serveur peut rétablir son accès à
+   * n'importe quel rôle depuis Paramètres → Intégrations. Sans contrôle ici,
+   * n'importe qui aurait alors pu délier un ladder ou détourner le salon des
+   * comptes rendus.
+   *
+   * `has()` tient compte d'Administrateur, qui couvre tout par définition. */
+  if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    return repondre(
+      "Il faut la permission **Gérer le serveur** pour configurer le bot ici.",
+    );
+  }
 
   if (sous === "etat") return etat(interaction, env.publicUrl);
 
