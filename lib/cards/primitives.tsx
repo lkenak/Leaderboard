@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { crestSrc, isApex, roleSrc } from "@/lib/lol";
 import type { Role, Tier } from "@/lib/types";
-import { asset } from "./assets";
+import { asset, fitInBox } from "./assets";
 import { COLOR, FONT, RADIUS, TIER_COLOR, caps, label, num, ring } from "./tokens";
 
 /**
@@ -144,8 +144,32 @@ export function SkewChip({
 
 /* ── Images ───────────────────────────────────────────────────────────────── */
 
+/**
+ * Un blason de palier, à ses proportions, centré dans un carré de `size`.
+ *
+ * Les crests ne sont **pas** carrés : Master est en 17×15, Fer en 17×12, et
+ * seuls Émeraude, Platine et Diamant tombent juste. Les forcer dans un carré
+ * les écrasait — mais seulement pour certains paliers, ce qui rendait le
+ * défaut difficile à voir. Le carré est conservé comme boîte, pour que les
+ * blasons restent alignés d'une ligne à l'autre ; c'est ce que fait
+ * `object-contain` sur le site.
+ */
 export function Crest({ tier, size = 40 }: { tier: Tier | "UNRANKED"; size?: number }) {
-  return <img src={asset(crestSrc(tier))} width={size} height={size} alt="" />;
+  const chemin = crestSrc(tier);
+  const dims = fitInBox(chemin, size);
+  return (
+    <div
+      style={{
+        display: "flex",
+        width: size,
+        height: size,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <img src={asset(chemin)} {...dims} alt="" />
+    </div>
+  );
 }
 
 /**
@@ -174,8 +198,19 @@ export function EloCrest({
   const taille = Math.round(size * 0.34);
 
   return (
-    <div style={{ display: "flex", position: "relative", width: size, height: size }}>
-      <img src={asset(crestSrc(tier))} width={size} height={size} alt="" />
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: size,
+        height: size,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {/* `Crest` centre le blason à ses proportions dans le carré — les crests
+          ne sont pas carrés, voir son commentaire. */}
+      <Crest tier={tier} size={size} />
       {badge && (
         <div
           style={{

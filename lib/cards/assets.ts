@@ -50,22 +50,41 @@ export function asset(publicPath: string): string {
 }
 
 /**
- * Les dimensions intrinsèques d'un PNG, lues dans son en-tête.
+ * Les dimensions intrinsèques d'une image, PNG ou SVG.
  *
- * Existe parce que supposer une image carrée coûte cher : les emblèmes de
- * palier sont en 16:9 (1280×720), et les forcer dans un carré les étirait
- * verticalement de 44 %. Une carte doit calculer sa hauteur depuis le ratio
- * réel, pas depuis une intuition.
+ * Existe parce que supposer une image carrée coûte cher, et que ça s'est
+ * produit deux fois : les emblèmes de palier sont en 16:9 et se sont retrouvés
+ * étirés de 44 % dans un carré ; les crests, eux, ne sont carrés que pour
+ * Émeraude, Platine et Diamant — Master est en 17×15, Fer en 17×12. Le bug ne
+ * se voyait donc que sur certains paliers, ce qui est la pire façon de le
+ * découvrir.
  *
- * PNG seulement : la largeur et la hauteur tiennent dans le bloc IHDR, aux
- * octets 16 à 24, toujours. Les SVG n'en ont pas besoin — ils se redimensionnent
- * sans se déformer.
+ * PNG : largeur et hauteur vivent dans le bloc IHDR, aux octets 16 à 24.
+ * SVG : le `viewBox` fait autorité, avec repli sur `width`/`height`.
  */
-export function pngSize(publicPath: string): { width: number; height: number } | null {
+export function imageSize(publicPath: string): { width: number; height: number } | null {
   try {
-    const entete = readFileSync(join(process.cwd(), "public", publicPath)).subarray(0, 24);
-    if (entete.subarray(0, 8).toString("hex") !== "89504e470d0a1a0a") return null;
-    return { width: entete.readUInt32BE(16), height: entete.readUInt32BE(20) };
+    const octets = readFileSync(join(process.cwd(), "public", publicPath));
+
+    if (octets.subarray(0, 8).toString("hex") === "89504e470d0a1a0a") {
+      return { width: octets.readUInt32BE(16), height: octets.readUInt32BE(20) };
+    }
+
+    // Les en-têtes SVG de ce projet tiennent dans les premiers octets ; lire
+    // tout le fichier pour y chercher un attribut serait du gaspillage.
+    const entete = octets.subarray(0, 512).toString("utf8");
+
+    const viewBox = /viewBox\s*=\s*"([^"]+)"/.exec(entete);
+    if (viewBox) {
+      const n = viewBox[1].trim().split(/[\s,]+/).map(Number);
+      if (n.length === 4 && n[2] > 0 && n[3] > 0) return { width: n[2], height: n[3] };
+    }
+
+    const w = /\bwidth\s*=\s*"([\d.]+)"/.exec(entete);
+    const h = /\bheight\s*=\s*"([\d.]+)"/.exec(entete);
+    if (w && h) return { width: Number(w[1]), height: Number(h[1]) };
+
+    return null;
   } catch {
     return null;
   }
@@ -78,10 +97,28 @@ export function pngSize(publicPath: string): { width: number; height: number } |
  * mal proportionnée qu'une carte qui n'existe pas.
  */
 export function scaledToWidth(publicPath: string, width: number): { width: number; height: number } {
-  const taille = pngSize(publicPath);
+  const taille = imageSize(publicPath);
   return {
     width,
     height: taille ? Math.round((width * taille.height) / taille.width) : width,
+  };
+}
+
+/**
+ * Les dimensions pour tenir dans un carré sans se déformer — l'équivalent du
+ * `object-contain` que le site applique à ses crests.
+ *
+ * Le carré, lui, garde sa taille : c'est ce qui aligne les blasons d'une ligne
+ * à l'autre alors qu'ils n'ont pas tous le même rapport.
+ */
+export function fitInBox(publicPath: string, box: number): { width: number; height: number } {
+  const taille = imageSize(publicPath);
+  if (!taille) return { width: box, height: box };
+
+  const facteur = Math.min(box / taille.width, box / taille.height);
+  return {
+    width: Math.round(taille.width * facteur),
+    height: Math.round(taille.height * facteur),
   };
 }
 
