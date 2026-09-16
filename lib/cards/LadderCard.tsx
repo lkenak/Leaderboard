@@ -1,0 +1,283 @@
+import { LADDER_CARD, ladderCardHeight } from "./layout";
+import type { LadderCardModel, LadderRowModel } from "./models";
+import { stampLabel } from "./models";
+import {
+  Crest,
+  DeltaText,
+  FormBars,
+  Frame,
+  Label,
+  PositionChip,
+  PositionDelta,
+  Rail,
+  SkewChip,
+  WinBar,
+} from "./primitives";
+import { COLOR, FONT, RADIUS, num, ring } from "./tokens";
+
+/**
+ * La carte de classement — la transposition de `components/ranking/Ladder.tsx`
+ * sous satori.
+ *
+ * Ce n'est pas une réutilisation : `LadderRow.tsx` est un composant client, en
+ * classes Tailwind et en CSS grid, dont rien ne survit ici. C'est une
+ * transposition tenue par `tokens.ts` et son garde-fou de build. Les colonnes
+ * ci-dessous reprennent l'ordre et les proportions du site pour qu'une capture
+ * d'écran et une carte Discord se lisent de la même façon.
+ *
+ * Tout est en position absolue par colonne plutôt qu'en flex réparti : les
+ * chiffres doivent s'aligner verticalement d'une ligne à l'autre, et un flex
+ * avec `justify-content: space-between` les ferait danser selon la longueur
+ * des pseudos.
+ */
+
+const W = LADDER_CARD.width;
+const PAD = LADDER_CARD.padX;
+const COL = LADDER_CARD.col;
+
+/** Un pseudo trop long pousserait la colonne suivante hors de la carte. */
+function tronquer(s: string, max: number): string {
+  return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
+function Cell({ x, children }: { x: number; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "absolute",
+        left: x,
+        top: 0,
+        height: LADDER_CARD.rowHeight,
+        alignItems: "center",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function Row({ row }: { row: LadderRowModel }) {
+  const podium = row.position <= 3;
+  return (
+    <div
+      style={{
+        display: "flex",
+        position: "relative",
+        width: W,
+        height: LADDER_CARD.rowHeight,
+        // Les trois premiers sur un fond légèrement relevé, comme le podium du
+        // site ; le reste sur le fond nu.
+        background: podium ? COLOR.panel : "transparent",
+        borderBottom: `1px solid ${COLOR.hair}`,
+      }}
+    >
+      {/* Barre acide du premier : la 1re place se repère avant de lire. */}
+      {row.position === 1 && (
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: 3,
+            height: LADDER_CARD.rowHeight,
+            background: COLOR.acid,
+          }}
+        />
+      )}
+
+      <Cell x={COL.position}>
+        <PositionChip position={row.position} />
+      </Cell>
+
+      <Cell x={COL.positionDelta}>
+        <PositionDelta delta={row.positionDelta} />
+      </Cell>
+
+      {/* Pastille d'initiale plutôt que l'icône de profil : celle-ci vit sur
+          Data Dragon, et aucun `fetch` ne doit entrer dans le chemin de rendu.
+          Le cache disque des icônes arrive au lot 2. */}
+      <Cell x={COL.avatar}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 48,
+            height: 48,
+            borderRadius: RADIUS.sm,
+            background: COLOR.panel3,
+            boxShadow: ring(row.live ? "rgba(233, 255, 31, 0.7)" : COLOR.hair),
+            fontFamily: FONT.sans,
+            fontSize: 22,
+            fontWeight: 600,
+            color: COLOR.ink3,
+          }}
+        >
+          {row.name.slice(0, 1).toLocaleUpperCase("fr")}
+        </div>
+      </Cell>
+
+      <Cell x={COL.name}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ display: "flex", fontSize: 28, fontWeight: 600, color: COLOR.ink }}>
+              {tronquer(row.name, 22)}
+            </div>
+            {row.live && (
+              <div
+                style={{
+                  display: "flex",
+                  padding: "3px 10px",
+                  borderRadius: RADIUS.xs,
+                  background: "rgba(233, 255, 31, 0.18)",
+                  fontFamily: FONT.mono,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  letterSpacing: 1.6,
+                  color: COLOR.acid,
+                }}
+              >
+                EN JEU
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", ...num(18, 400, COLOR.ink4) }}>{`#${row.tag}`}</div>
+        </div>
+      </Cell>
+
+      <Cell x={COL.crest}>
+        <Crest tier={row.tier} size={40} />
+      </Cell>
+
+      <Cell x={COL.lp}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+          <div style={{ display: "flex", ...num(26, 600, COLOR.ink) }}>{row.leaguePoints}</div>
+          <div style={{ display: "flex", ...num(18, 400, COLOR.ink4) }}>LP</div>
+        </div>
+        <div style={{ display: "flex", marginLeft: 12, ...num(18, 500, COLOR.ink3) }}>
+          {row.rankShort}
+        </div>
+      </Cell>
+
+      <Cell x={COL.winrate}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                ...num(26, 600, row.winrate >= 50 ? COLOR.ink : COLOR.ink2),
+              }}
+            >
+              {`${row.winrate} %`}
+            </div>
+            <div style={{ display: "flex", ...num(16, 400, COLOR.ink4) }}>
+              {`${row.wins}V ${row.losses}D`}
+            </div>
+          </div>
+          <WinBar wins={row.wins} losses={row.losses} width={130} />
+        </div>
+      </Cell>
+
+      <Cell x={COL.session}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          <DeltaText value={row.sessionLp} size={26} suffix=" LP" />
+          <div style={{ display: "flex", ...num(16, 400, COLOR.ink4) }}>
+            {row.sessionWins + row.sessionLosses === 0
+              ? "aucune partie"
+              : `${row.sessionWins}V·${row.sessionLosses}D`}
+          </div>
+        </div>
+      </Cell>
+
+      <Cell x={COL.form}>
+        {row.form.length > 0 ? (
+          <FormBars form={row.form} />
+        ) : (
+          <div style={{ display: "flex", ...num(18, 400, COLOR.ink4) }}>—</div>
+        )}
+      </Cell>
+    </div>
+  );
+}
+
+function Vide() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        width: W,
+        height: LADDER_CARD.rowHeight * 3,
+        gap: 10,
+      }}
+    >
+      <div style={{ display: "flex", fontSize: 26, fontWeight: 600, color: COLOR.ink2 }}>
+        Aucun joueur classé
+      </div>
+      <Label size={16}>Ajoute des comptes, le relevé fera le reste</Label>
+    </div>
+  );
+}
+
+export function LadderCard({ model }: { model: LadderCardModel }) {
+  const lignes = model.rows.length;
+  const hauteur = lignes === 0 ? ladderCardHeight(3) : ladderCardHeight(lignes);
+
+  return (
+    <Frame width={W} height={hauteur}>
+      {/* En-tête */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: W,
+          height: LADDER_CARD.headerHeight,
+          padding: `0 ${PAD}px`,
+          borderBottom: `2px solid ${COLOR.hair2}`,
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", fontSize: 40, fontWeight: 700, color: COLOR.ink }}>
+            {tronquer(model.ladderName, 30)}
+          </div>
+          <Label size={16}>{`Classement SoloQ · relevé du ${stampLabel(model.updatedAt)}`}</Label>
+        </div>
+        {lignes > 0 && <SkewChip>{`Top ${lignes}`}</SkewChip>}
+      </div>
+
+      {/* Lignes */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        {lignes === 0 ? <Vide /> : model.rows.map((r) => <Row key={r.position} row={r} />)}
+      </div>
+
+      {/* Pied */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: W,
+          height: LADDER_CARD.footerHeight - 4,
+          padding: `0 ${PAD}px`,
+        }}
+      >
+        <Label size={16}>
+          {model.url
+            ? `soloq/ladder · ${model.url.replace(/^https?:\/\//, "")}`
+            : "soloq/ladder"}
+        </Label>
+        <Label size={16}>
+          {model.total > lignes
+            ? `${model.total} joueurs · ${model.splitName}`
+            : model.splitName}
+        </Label>
+      </div>
+      <Rail />
+    </Frame>
+  );
+}

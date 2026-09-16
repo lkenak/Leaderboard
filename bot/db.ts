@@ -22,9 +22,10 @@ import { disableMigrations, getDb } from "@/lib/db/client";
  * La migration la plus récente dont ce code a besoin.
  *
  * À relever dans le même commit que chaque migration dont le bot dépend.
- * Aujourd'hui `0003` : le bot ne lit encore que le schéma existant.
+ * Aujourd'hui `0004` : sans `ladder_discord_guilds`, aucune commande ne peut
+ * savoir quel ladder ce serveur suit.
  */
-export const MIGRATION_MINIMALE = "0003_user_riot_accounts_main.sql";
+export const MIGRATION_MINIMALE = "0004_ladder_discord_guilds.sql";
 
 export interface EtatSchema {
   appliquees: string[];

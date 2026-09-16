@@ -22,6 +22,18 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // Les routes de rendu de cartes sont des gestionnaires HTTP qui se trouvent
+    // écrits en .tsx — pas des composants React. Il n'y a ici ni cycle de
+    // rendu, ni re-rendu, ni frontière d'erreur : satori transforme l'élément
+    // en PNG une fois, immédiatement, dans l'appel qu'on attend. Les règles
+    // `react-hooks` qui supposent un rendu différé n'y ont donc pas de sens.
+    files: ["app/api/**/route.tsx"],
+    rules: {
+      "react-hooks/purity": "off",
+      "react-hooks/error-boundaries": "off",
+    },
+  },
+  {
     // Les cartes Discord sont dessinées par satori, pas par un navigateur :
     // `next/image` n'y existe pas, et `<img>` y est le seul élément d'image
     // possible. Il n'y a ni LCP ni bande passante à optimiser — le résultat

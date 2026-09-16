@@ -39,6 +39,25 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  // L'autocomplétion a sa propre boucle : Discord attend une réponse en 3 s,
+  // et une erreur ici ne doit surtout pas partir dans le chemin d'erreur des
+  // commandes (on ne peut pas « répondre » à une autocomplétion).
+  if (interaction.isAutocomplete()) {
+    const commande = PAR_NOM.get(interaction.commandName);
+    try {
+      await commande?.autocomplete?.(interaction);
+    } catch (err) {
+      console.error(`[bot] autocomplétion de /${interaction.commandName} :`, err);
+      // Une liste vide vaut mieux qu'un champ qui tourne indéfiniment.
+      try {
+        await interaction.respond([]);
+      } catch {
+        /* déjà répondu ou expiré */
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   const commande = PAR_NOM.get(interaction.commandName);

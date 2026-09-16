@@ -13,6 +13,7 @@ import {
   SkewChip,
   WinBar,
 } from "@/lib/cards/primitives";
+import { refuseNonAutorise } from "@/lib/cards/internal-auth";
 import { renderCard } from "@/lib/cards/render";
 import { ROLES, TIERS } from "@/lib/types";
 
@@ -147,17 +148,8 @@ function Demo() {
 }
 
 export async function GET(request: NextRequest) {
-  // Même garde que `/api/refresh` : secret facultatif hors production, exigé
-  // en production. Voir `app/api/refresh/route.ts`.
-  const secret = process.env.REFRESH_SECRET;
-  if (secret) {
-    const header = request.headers.get("authorization");
-    if (header !== `Bearer ${secret}` && request.nextUrl.searchParams.get("secret") !== secret) {
-      return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
-    }
-  } else if (process.env.NODE_ENV === "production") {
-    return NextResponse.json({ error: "REFRESH_SECRET non configuré." }, { status: 401 });
-  }
+  const refus = refuseNonAutorise(request);
+  if (refus) return refus;
 
   const png = await renderCard(<Demo />, { width: WIDTH, height: HEIGHT });
 

@@ -1,9 +1,12 @@
 import type {
+  AutocompleteInteraction,
   ChatInputCommandInteraction,
   SlashCommandOptionsOnlyBuilder,
   SlashCommandSubcommandsOnlyBuilder,
 } from "discord.js";
 import type { SlashCommandBuilder } from "discord.js";
+import * as classement from "./classement";
+import * as ladder from "./ladder";
 import * as ping from "./ping";
 
 /**
@@ -16,6 +19,8 @@ import * as ping from "./ping";
  */
 
 export interface Commande {
+  /** Présente seulement sur les commandes qui ont une option autocomplétée. */
+  autocomplete?(interaction: AutocompleteInteraction): Promise<void>;
   data:
     | SlashCommandBuilder
     | SlashCommandOptionsOnlyBuilder
@@ -24,6 +29,6 @@ export interface Commande {
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
-export const COMMANDES: Commande[] = [ping];
+export const COMMANDES: Commande[] = [classement, ladder, ping];
 
 export const PAR_NOM = new Map(COMMANDES.map((c) => [c.data.name, c]));

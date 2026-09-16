@@ -69,20 +69,56 @@ export async function declencherRefresh(): Promise<ResultatRefresh> {
 /* ── Cartes ───────────────────────────────────────────────────────────────── */
 
 /**
+ * Ce que renvoie une route de carte : l'image **et** tout ce qui doit
+ * l'accompagner, en un seul aller-retour.
+ *
+ * `png` vaut `null` quand le serveur a répondu mais que le rendu a échoué
+ * (503) : il nous donne alors quand même `summary` et `fallback`, construits
+ * sur le même modèle. C'est ce qui permet à `/classement` de répondre
+ * quelque chose d'utile au lieu d'une erreur.
+ */
+export interface CarteRendue {
+  png: Buffer | null;
+  alt: string;
+  summary: string;
+  url: string;
+  updatedAt: number;
+  fallback: {
+    title: string;
+    url: string;
+    description: string;
+    color: number;
+    footer: { text: string };
+  };
+}
+
+interface CartePayload extends Omit<CarteRendue, "png"> {
+  png?: string;
+}
+
+/**
  * Récupère une carte rendue.
  *
- * Renvoie `null` plutôt que de lever : l'appelant doit se replier sur un
- * embed texte, jamais répondre « erreur ». Le classement ne doit pas
- * disparaître de Discord parce que le site redémarre.
+ * Renvoie `null` seulement quand le site est totalement injoignable — dans ce
+ * cas l'appelant n'a rien du tout et doit composer son propre message. Toute
+ * autre situation (rendu raté, ladder vide) revient avec un contenu
+ * exploitable. On ne lève jamais : une commande Discord ne doit pas répondre
+ * « erreur » parce qu'une image n'a pas voulu se dessiner.
  */
-export async function recupererCarte(chemin: string): Promise<Buffer | null> {
+export async function recupererCarte(chemin: string): Promise<CarteRendue | null> {
   try {
     const res = await appeler(chemin, TIMEOUT_CARTE_MS);
-    if (!res.ok) {
+
+    // 503 = rendu échoué, mais le corps porte le repli. Tout autre code
+    // d'erreur est un vrai problème (404 ladder, 401 secret) et n'a pas de
+    // contenu utilisable.
+    if (!res.ok && res.status !== 503) {
       console.warn(`[bot] carte ${chemin} : le site a répondu ${res.status}`);
       return null;
     }
-    return Buffer.from(await res.arrayBuffer());
+
+    const data = (await res.json()) as CartePayload;
+    return { ...data, png: data.png ? Buffer.from(data.png, "base64") : null };
   } catch (err) {
     console.warn(`[bot] carte ${chemin} injoignable :`, err instanceof Error ? err.message : err);
     return null;
