@@ -1,8 +1,8 @@
-import { crestSrc, roleSrc } from "@/lib/lol";
+import { roleSrc } from "@/lib/lol";
 import { asset } from "./assets";
 import { LOBBY_CARD } from "./layout";
 import type { LobbyCardModel, LobbyPlayerModel } from "./models";
-import { Frame, Label, Rail, tierColor } from "./primitives";
+import { EloCrest, Frame, Label, Rail } from "./primitives";
 import { COLOR, FONT, num, ring } from "./tokens";
 
 /**
@@ -61,30 +61,60 @@ function Place({ index, joueur }: { index: number; joueur: LobbyPlayerModel | nu
         <div style={{ display: "flex", ...num(20, 400, COLOR.ink4) }}>—</div>
       ) : (
         <>
-          <img src={asset(crestSrc(joueur.tier ?? "UNRANKED"))} width={30} height={30} alt="" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ display: "flex", fontSize: 24, fontWeight: 600, color: COLOR.ink }}>
-              {tronquer(joueur.name, 16)}
+          {/* Le motif `EloCell` du site : blason + division en pastille, puis
+              les LP. Le rang n'est plus écrit sous le nom — il se lit dans le
+              blason, et l'écrire en toutes lettres à côté le disait deux fois. */}
+          <EloCrest tier={joueur.tier ?? "UNRANKED"} division={joueur.division} size={32} />
+
+          {/* Largeur fixe, ni `flex: 1` ni marge automatique. Sous satori,
+              `margin-left: auto` ne pousse rien, et `flex: 1` part d'une base
+              nulle puis écrase le contenu — les deux ont été essayés. Une
+              colonne de largeur connue donne en prime des LP alignés d'une
+              ligne à l'autre, comme dans la carte de classement. */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 1,
+              width: 196,
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: "flex", fontSize: 23, fontWeight: 600, color: COLOR.ink }}>
+              {tronquer(joueur.name, 15)}
             </div>
-            <div
-              style={{
-                display: "flex",
-                ...num(16, 400, joueur.rankShort ? tierColor(joueur.tier ?? "UNRANKED") : COLOR.ink4),
-              }}
-            >
-              {joueur.rankShort ?? "compte non lié"}
-              {joueur.rankShort && !joueur.mesure ? " · déclaré" : ""}
-            </div>
+            {/* Une seule ligne sous le nom, et seulement quand elle apprend
+                quelque chose : un rang déclaré (donc à prendre avec des
+                pincettes) ou un compte qu'on ne connaît pas. Un rang mesuré
+                n'a rien à ajouter, le blason l'a déjà dit. */}
+            {joueur.tier === null ? (
+              <div style={{ display: "flex", ...num(15, 400, COLOR.ink4) }}>compte non lié</div>
+            ) : !joueur.mesure ? (
+              <div style={{ display: "flex", ...num(15, 400, COLOR.ink4) }}>déclaré</div>
+            ) : null}
           </div>
-          {joueur.role && (
-            <img
-              src={asset(roleSrc(joueur.role))}
-              width={22}
-              height={22}
-              style={{ marginLeft: "auto" }}
-              alt=""
-            />
-          )}
+
+          <div style={{ display: "flex", alignItems: "baseline", flexShrink: 0 }}>
+            {joueur.leaguePoints !== null && (
+              <>
+                <div style={{ display: "flex", ...num(19, 600, COLOR.ink) }}>
+                  {joueur.leaguePoints}
+                </div>
+                <div style={{ display: "flex", marginLeft: 4, ...num(14, 400, COLOR.ink4) }}>
+                  LP
+                </div>
+              </>
+            )}
+            {joueur.role && (
+              <img
+                src={asset(roleSrc(joueur.role))}
+                width={20}
+                height={20}
+                style={{ marginLeft: 8 }}
+                alt=""
+              />
+            )}
+          </div>
         </>
       )}
     </div>

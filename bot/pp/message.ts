@@ -71,6 +71,8 @@ async function versModele(client: Client, session: PpSession): Promise<LobbyCard
     return {
       name: await nomAffiche(client, discordUserId),
       tier: j.tier,
+      division: j.division,
+      leaguePoints: j.leaguePoints,
       rankShort: j.rangCourt,
       mesure: j.source === "mesuré",
       role: j.mainRole,

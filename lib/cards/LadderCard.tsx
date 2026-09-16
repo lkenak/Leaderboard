@@ -2,7 +2,7 @@ import { LADDER_CARD, ladderCardHeight } from "./layout";
 import type { LadderCardModel, LadderRowModel } from "./models";
 import { stampLabel } from "./models";
 import {
-  Crest,
+  EloCrest,
   FormBars,
   Frame,
   Label,
@@ -150,17 +150,17 @@ function Row({ row }: { row: LadderRowModel }) {
         </div>
       </Cell>
 
+      {/* Le motif `EloCell` du site : le palier se lit dans le blason, la
+          division est une pastille accrochée dessus. Écrire « P3 » à côté
+          disait la même chose deux fois. */}
       <Cell x={COL.crest}>
-        <Crest tier={row.tier} size={40} />
+        <EloCrest tier={row.tier} division={row.division} size={40} />
       </Cell>
 
       <Cell x={COL.lp}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
           <div style={{ display: "flex", ...num(26, 600, COLOR.ink) }}>{row.leaguePoints}</div>
           <div style={{ display: "flex", ...num(18, 400, COLOR.ink4) }}>LP</div>
-        </div>
-        <div style={{ display: "flex", marginLeft: 12, ...num(18, 500, COLOR.ink3) }}>
-          {row.rankShort}
         </div>
       </Cell>
 

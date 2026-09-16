@@ -24,6 +24,9 @@ export interface LadderRowModel {
   name: string;
   tag: string;
   tier: Tier;
+  /** Division en chiffres romains, `null` en apex (Master et au-dessus). */
+  division: string | null;
+  /** Libellé court (« E2 »), pour les textes — la carte dessine la pastille. */
   rankShort: string;
   leaguePoints: number;
   wins: number;
@@ -69,6 +72,7 @@ function rowFromEntry(entry: RankingEntry): LadderRowModel {
     name: entry.player.displayName ?? entry.player.gameName,
     tag: entry.player.tagLine,
     tier: entry.rank.tier,
+    division: entry.rank.division,
     rankShort: rankShort(entry.rank),
     leaguePoints: entry.rank.leaguePoints,
     wins: entry.rank.wins,
@@ -205,6 +209,10 @@ export interface LobbyPlayerModel {
   /** Le nom d'affichage Discord — la carte ne peut pas porter de mention. */
   name: string;
   tier: Tier | null;
+  division: string | null;
+  /** `null` pour un rang déclaré : personne ne déclare ses LP. */
+  leaguePoints: number | null;
+  /** Libellé court (« E2 »), pour les textes — jamais pour la carte. */
   rankShort: string | null;
   /** `true` quand le rang vient d'un relevé et non d'une déclaration. */
   mesure: boolean;

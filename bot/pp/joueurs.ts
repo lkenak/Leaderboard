@@ -26,7 +26,11 @@ export interface JoueurPp {
   discordUserId: string;
   source: SourceRang;
   tier: Tier | null;
-  /** Libellé court (« E2 », « P3 »), ou `null` si le rang est inconnu. */
+  /** Division en chiffres romains, `null` en apex ou si le rang est inconnu. */
+  division: string | null;
+  /** `null` pour un rang déclaré : personne ne déclare ses LP. */
+  leaguePoints: number | null;
+  /** Libellé court (« E2 », « P3 ») pour les textes, `null` si inconnu. */
   rangCourt: string | null;
   /** Échelle continue tous paliers confondus — la clé de l'équilibrage. */
   absoluteLp: number;
@@ -60,6 +64,8 @@ export function resoudreJoueur(discordUserId: string): JoueurPp {
         discordUserId,
         source: "mesuré",
         tier: releve.tier,
+        division: releve.division,
+        leaguePoints: releve.leaguePoints,
         rangCourt: rankShort(rank),
         absoluteLp: absoluteLp(rank),
         mainRole: posteDominant(lien.puuid),
@@ -83,6 +89,8 @@ export function resoudreJoueur(discordUserId: string): JoueurPp {
       discordUserId,
       source: "déclaré",
       tier: profil.tier,
+      division: profil.division === "NA" ? null : profil.division,
+      leaguePoints: null,
       rangCourt: rankShort(rank),
       absoluteLp: absoluteLp(rank),
       mainRole: profil.mainRole,
@@ -94,6 +102,8 @@ export function resoudreJoueur(discordUserId: string): JoueurPp {
     discordUserId,
     source: "inconnu",
     tier: null,
+    division: null,
+    leaguePoints: null,
     rangCourt: null,
     absoluteLp: 0,
     mainRole: null,

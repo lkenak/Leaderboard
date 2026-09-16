@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { crestSrc, roleSrc } from "@/lib/lol";
+import { crestSrc, isApex, roleSrc } from "@/lib/lol";
 import type { Role, Tier } from "@/lib/types";
 import { asset } from "./assets";
 import { COLOR, FONT, RADIUS, TIER_COLOR, caps, label, num, ring } from "./tokens";
@@ -146,6 +146,60 @@ export function SkewChip({
 
 export function Crest({ tier, size = 40 }: { tier: Tier | "UNRANKED"; size?: number }) {
   return <img src={asset(crestSrc(tier))} width={size} height={size} alt="" />;
+}
+
+/**
+ * Le crest avec sa division en pastille, collée en bas à droite — le motif
+ * `EloCell` du site (`components/ranking/cells.tsx`).
+ *
+ * C'est la façon dont ce projet écrit un rang partout ailleurs : le palier se
+ * lit dans la forme et la couleur du blason, la division est un détail qu'on
+ * accroche dessus. Écrire « P3 » en toutes lettres à côté disait la même chose
+ * deux fois, et plus mal.
+ *
+ * Pas de pastille sur les paliers apex, qui n'ont pas de division.
+ */
+export function EloCrest({
+  tier,
+  division,
+  size = 40,
+}: {
+  tier: Tier | "UNRANKED";
+  division: string | null;
+  size?: number;
+}) {
+  const badge = tier !== "UNRANKED" && !isApex(tier) && division ? division : null;
+  // La pastille est proportionnée au blason : à 30 px comme à 72, elle garde
+  // le même poids visuel que sur le site.
+  const taille = Math.round(size * 0.34);
+
+  return (
+    <div style={{ display: "flex", position: "relative", width: size, height: size }}>
+      <img src={asset(crestSrc(tier))} width={size} height={size} alt="" />
+      {badge && (
+        <div
+          style={{
+            display: "flex",
+            position: "absolute",
+            right: -Math.round(size * 0.1),
+            bottom: 0,
+            alignItems: "center",
+            justifyContent: "center",
+            padding: `0 ${Math.max(2, Math.round(size * 0.07))}px`,
+            borderRadius: RADIUS.xs,
+            background: "rgba(5, 6, 10, 0.9)",
+            boxShadow: ring(COLOR.hair2),
+            fontFamily: FONT.mono,
+            fontSize: taille,
+            fontWeight: 600,
+            color: COLOR.ink2,
+          }}
+        >
+          {badge}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function RoleGlyph({ role, size = 26 }: { role: Role; size?: number }) {
