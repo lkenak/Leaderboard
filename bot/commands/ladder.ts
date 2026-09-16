@@ -20,7 +20,7 @@ import { getLadderBySlug } from "@/lib/db/ladders";
 import { laddersForUser } from "@/lib/db/users";
 import { shortDate } from "@/lib/format";
 import { loadEnv } from "../env";
-import { messageAucunCompte, resoudreUtilisateur } from "../liens";
+import { messageEtat, resoudre } from "../liens";
 
 /**
  * Administration de la liaison entre un serveur Discord et un ladder.
@@ -147,8 +147,8 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
   let choix: Array<{ name: string; value: string }> = [];
 
   if (sous === "lier") {
-    const lien = resoudreUtilisateur(interaction.user.id);
-    if (lien.etat === "lié") {
+    const lien = resoudre(interaction.user.id);
+    if (lien.etat !== "aucun-compte") {
       choix = laddersForUser(lien.utilisateur.id).owned.map((l) => ({
         name: `${l.name} (${l.memberCount} joueur${l.memberCount > 1 ? "s" : ""})`,
         value: l.slug,
@@ -186,9 +186,12 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   const slugDemande = interaction.options.getString("slug");
 
   if (sous === "lier") {
-    const lien = resoudreUtilisateur(interaction.user.id);
+    // Seule la présence d'un compte sur le site compte ici : lier un ladder
+    // ne demande pas d'avoir déclaré un compte Riot, seulement d'être le
+    // propriétaire du ladder.
+    const lien = resoudre(interaction.user.id);
     if (lien.etat === "aucun-compte") {
-      return repondre(messageAucunCompte(env.publicUrl));
+      return repondre(messageEtat(lien, env.publicUrl, true));
     }
 
     const ladder = getLadderBySlug(slugDemande!);

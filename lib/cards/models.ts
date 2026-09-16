@@ -1,6 +1,7 @@
-import { clockTime, shortDate, winratePct } from "@/lib/format";
-import { rankShort } from "@/lib/lol";
-import type { RankingEntry, RankingSnapshot, Tier } from "@/lib/types";
+import { clockTime, kdaLabel, shortDate, winratePct } from "@/lib/format";
+import { championSrc, rankFromAbsoluteLp, rankLabel, rankShort } from "@/lib/lol";
+import type { RankingEntry, RankingSnapshot, Role, Tier } from "@/lib/types";
+import { asset } from "./assets";
 import { LADDER_CARD } from "./layout";
 import { profileIconDataUri } from "./profile-icons";
 
@@ -95,6 +96,107 @@ export function buildLadderCardModel(
     rows: snapshot.entries.slice(0, max).map(rowFromEntry),
     total: snapshot.entries.length,
   };
+}
+
+/* ── Fiche d'un joueur ────────────────────────────────────────────────────── */
+
+export interface PlayerCardModel {
+  name: string;
+  tag: string;
+  tier: Tier;
+  rankLabel: string;
+  peakLabel: string;
+  leaguePoints: number;
+  role: Role;
+  wins: number;
+  losses: number;
+  winrate: number;
+  kdaLabel: string;
+  /**
+   * Bilan 24 h — gardé ici, contrairement à la carte de classement : sur une
+   * fiche individuelle c'est l'information du jour.
+   */
+  sessionLp: number | null;
+  sessionWins: number;
+  sessionLosses: number;
+  sessionGames: number;
+  form: boolean[];
+  /** `null` en dessous de deux parties : une série de 1 n'est pas une série. */
+  streak: { type: "win" | "loss"; count: number } | null;
+  champions: Array<{ icon: string }>;
+  live: boolean;
+  icon: string | null;
+  /** Position dans le ladder consulté, `null` si le joueur n'y figure pas. */
+  position: number | null;
+  total: number;
+  ladderName: string | null;
+  url: string | null;
+  updatedAt: number;
+}
+
+export function buildPlayerCardModel(
+  entry: RankingEntry | Omit<RankingEntry, "position" | "positionDelta">,
+  options: {
+    position: number | null;
+    total: number;
+    ladderName: string | null;
+    url: string | null;
+    updatedAt: number;
+  },
+): PlayerCardModel {
+  return {
+    name: entry.player.displayName ?? entry.player.gameName,
+    tag: entry.player.tagLine,
+    tier: entry.rank.tier,
+    rankLabel: rankLabel(entry.rank),
+    peakLabel: rankLabel(rankFromAbsoluteLp(entry.peakAbsoluteLp)),
+    leaguePoints: entry.rank.leaguePoints,
+    role: entry.player.mainRole,
+    wins: entry.rank.wins,
+    losses: entry.rank.losses,
+    winrate: winratePct(entry.rank.wins, entry.rank.losses),
+    kdaLabel: kdaLabel(entry.kda),
+    sessionLp: entry.session.lp,
+    sessionWins: entry.session.wins,
+    sessionLosses: entry.session.losses,
+    sessionGames: entry.session.games,
+    form: [...entry.form].reverse(),
+    streak:
+      entry.streak.type !== "none" && entry.streak.count >= 2
+        ? { type: entry.streak.type, count: entry.streak.count }
+        : null,
+    // Trois au plus : au-delà, les vignettes mangent la ligne de statistiques.
+    champions: entry.champions.slice(0, 3).map((c) => ({ icon: asset(championSrc(c.championId)) })),
+    live: entry.live !== null,
+    icon: profileIconDataUri(entry.player.profileIconId || null),
+    position: options.position,
+    total: options.total,
+    ladderName: options.ladderName,
+    url: options.url,
+    updatedAt: options.updatedAt,
+  };
+}
+
+/** Texte alternatif de la fiche, pour les lecteurs d'écran. */
+export function playerAltText(model: PlayerCardModel): string {
+  const morceaux = [
+    `Fiche de ${model.name}`,
+    model.rankLabel,
+    `${model.leaguePoints} LP`,
+    `${model.winrate} % de winrate sur ${model.wins + model.losses} parties`,
+    `KDA ${model.kdaLabel}`,
+  ];
+  if (model.position !== null) {
+    morceaux.push(`${model.position}e sur ${model.total} dans ${model.ladderName}`);
+  }
+  if (model.sessionGames > 0) {
+    morceaux.push(
+      `sur 24 h : ${deltaLabel(model.sessionLp, " LP")}, ` +
+        `${model.sessionWins} victoires et ${model.sessionLosses} défaites`,
+    );
+  }
+  if (model.live) morceaux.push("actuellement en jeu");
+  return `${morceaux.join(", ")}. Relevé du ${stampLabel(model.updatedAt)}.`;
 }
 
 /* ── Textes qui accompagnent l'image ──────────────────────────────────────── */

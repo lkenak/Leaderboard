@@ -8,6 +8,7 @@ import type { SlashCommandBuilder } from "discord.js";
 import * as classement from "./classement";
 import * as ladder from "./ladder";
 import * as ping from "./ping";
+import * as profil from "./profil";
 
 /**
  * Le registre des commandes.
@@ -29,6 +30,6 @@ export interface Commande {
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
-export const COMMANDES: Commande[] = [classement, ladder, ping];
+export const COMMANDES: Commande[] = [classement, ladder, ping, profil];
 
 export const PAR_NOM = new Map(COMMANDES.map((c) => [c.data.name, c]));

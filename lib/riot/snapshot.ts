@@ -163,6 +163,90 @@ function labelOf(m: LadderMemberRecord): string {
   return `${m.gameName}#${m.tagLine}`;
 }
 
+/** L'identité d'un joueur, indépendamment du ladder qui le référence. */
+export interface PlayerIdentity {
+  puuid: string;
+  gameName: string;
+  tagLine: string;
+  region: Player["region"];
+  roleOverride?: Role;
+  country?: string;
+}
+
+/**
+ * Tout ce qu'on sait d'un compte, sans sa position dans un classement.
+ *
+ * Extrait de `buildLadderSnapshot` pour être réutilisable : le bot Discord
+ * doit pouvoir dresser la fiche d'un joueur qui n'appartient à aucun ladder —
+ * un compte déclaré dans « mes comptes » est relevé par la synchro même hors
+ * ladder (`listPlayersToSync` fait l'union des deux).
+ *
+ * Renvoie `null` avec une raison lisible plutôt que de lever : un compte pas
+ * encore relevé est un cas normal, pas une erreur.
+ */
+export function buildPlayerEntry(
+  identity: PlayerIdentity,
+  now: number,
+): { entry: Omit<RankingEntry, "position" | "positionDelta"> } | { raison: string } {
+  const account = getPlayer(identity.puuid);
+  const samples = listSamples(identity.puuid);
+  const latest = samples.at(-1);
+  if (!account || !latest) {
+    return { raison: account?.lastError ?? "Aucun relevé de rang pour l'instant" };
+  }
+
+  const allGames = listGames(identity.puuid);
+  const window = allGames.slice(0, WINDOW);
+  const rank = {
+    tier: latest.tier,
+    division: latest.division,
+    leaguePoints: latest.leaguePoints,
+    wins: latest.wins,
+    losses: latest.losses,
+  };
+  const totals = window.reduce(
+    (a, g) => ({ k: a.k + g.kills, d: a.d + g.deaths, a: a.a + g.assists }),
+    { k: 0, d: 0, a: 0 },
+  );
+
+  const player: Player = {
+    puuid: identity.puuid,
+    slug: slugify(identity.gameName, identity.tagLine),
+    gameName: identity.gameName,
+    tagLine: identity.tagLine,
+    region: identity.region,
+    profileIconId: account.profileIconId ?? 0,
+    summonerLevel: account.summonerLevel ?? 0,
+    mainRole: identity.roleOverride ?? dominantRole(window) ?? "MIDDLE",
+    country: identity.country,
+  };
+
+  return {
+    entry: {
+      player,
+      rank,
+      absoluteLp: absoluteLp(rank),
+      session: sessionOf(samples, allGames, now),
+      form: window.slice(0, 7).map((g) => g.win),
+      streak: streakOf(window),
+      winrate: winratePct(rank.wins, rank.losses),
+      games: rank.wins + rank.losses,
+      kda: kdaOf(totals.k, totals.d, totals.a),
+      champions: championsOf(window),
+      lpHistory: lpCurve(samples),
+      // Le pic persisté fait autorité ; les relevés ne servent que de repli
+      // pour un compte suivi avant l'introduction du champ.
+      peakAbsoluteLp: Math.max(
+        account.peakAbsoluteLp ?? 0,
+        samples.reduce((m, s) => Math.max(m, s.absoluteLp), 0),
+      ),
+      live: getLive(identity.puuid),
+      recentGames: allGames.slice(0, 12),
+      lastGameAt: allGames[0]?.endedAt ?? null,
+    },
+  };
+}
+
 export function buildLadderSnapshot(
   ladderId: string,
   now: number,
@@ -182,65 +266,24 @@ export function buildLadderSnapshot(
       excluded.push({ label, reason: member.resolveError ?? "Pas encore synchronisé" });
       continue;
     }
-    const account = getPlayer(member.puuid);
-    const samples = listSamples(member.puuid);
-    const latest = samples.at(-1);
-    if (!account || !latest) {
-      excluded.push({
-        label,
-        reason: account?.lastError ?? "Aucun relevé de rang pour l'instant",
-      });
-      continue;
-    }
 
-    const allGames = listGames(member.puuid);
-    const window = allGames.slice(0, WINDOW);
-    const rank = {
-      tier: latest.tier,
-      division: latest.division,
-      leaguePoints: latest.leaguePoints,
-      wins: latest.wins,
-      losses: latest.losses,
-    };
-    const totals = window.reduce(
-      (a, g) => ({ k: a.k + g.kills, d: a.d + g.deaths, a: a.a + g.assists }),
-      { k: 0, d: 0, a: 0 },
+    const resultat = buildPlayerEntry(
+      {
+        puuid: member.puuid,
+        gameName: member.gameName,
+        tagLine: member.tagLine,
+        region: member.region,
+        roleOverride: member.roleOverride,
+        country: member.country,
+      },
+      now,
     );
 
-    const player: Player = {
-      puuid: member.puuid,
-      slug: slugify(member.gameName, member.tagLine),
-      gameName: member.gameName,
-      tagLine: member.tagLine,
-      region: member.region,
-      profileIconId: account.profileIconId ?? 0,
-      summonerLevel: account.summonerLevel ?? 0,
-      mainRole: member.roleOverride ?? dominantRole(window) ?? "MIDDLE",
-      country: member.country,
-    };
-
-    built.push({
-      player,
-      rank,
-      absoluteLp: absoluteLp(rank),
-      session: sessionOf(samples, allGames, now),
-      form: window.slice(0, 7).map((g) => g.win),
-      streak: streakOf(window),
-      winrate: winratePct(rank.wins, rank.losses),
-      games: rank.wins + rank.losses,
-      kda: kdaOf(totals.k, totals.d, totals.a),
-      champions: championsOf(window),
-      lpHistory: lpCurve(samples),
-      // Le pic persisté fait autorité ; les relevés ne servent que de repli
-      // pour un compte suivi avant l'introduction du champ.
-      peakAbsoluteLp: Math.max(
-        account.peakAbsoluteLp ?? 0,
-        samples.reduce((m, s) => Math.max(m, s.absoluteLp), 0),
-      ),
-      live: getLive(member.puuid),
-      recentGames: allGames.slice(0, 12),
-      lastGameAt: allGames[0]?.endedAt ?? null,
-    });
+    if ("raison" in resultat) {
+      excluded.push({ label, reason: resultat.raison });
+      continue;
+    }
+    built.push(resultat.entry);
   }
 
   const { lastSync, lastSyncError } = getSyncMeta();
