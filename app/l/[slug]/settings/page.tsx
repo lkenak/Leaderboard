@@ -5,7 +5,7 @@ import { connection } from "next/server";
 import { headerContext } from "@/lib/header";
 import { getLadderBySlug, listMembers } from "@/lib/db/ladders";
 import { getPlayer, listGames, listSamples } from "@/lib/db/riot-players";
-import { hasKey, refreshIntervalMs } from "@/lib/riot/refresh";
+import { hasKey } from "@/lib/riot/refresh";
 import { agoLabel, clockTime, thousands } from "@/lib/format";
 import { rankShort } from "@/lib/lol";
 import { reportedNow } from "@/lib/now";
@@ -17,10 +17,12 @@ import { AddAccountForm } from "@/components/settings/AddAccountForm";
 import { SyncButton } from "@/components/settings/SyncButton";
 import {
   addAccountAction,
+  createLinkCodeAction,
   removeAccountAction,
   retryAccountAction,
   syncNowAction,
 } from "./actions";
+import { DUREE_CODE_MS } from "@/lib/db/link-codes";
 
 export const metadata: Metadata = {
   title: "Réglages du ladder",
@@ -81,6 +83,7 @@ export default async function LadderSettingsPage({
 
   const boundAdd = addAccountAction.bind(null, slug);
   const boundSync = syncNowAction.bind(null, slug);
+  const boundLinkCode = createLinkCodeAction.bind(null, slug);
   const boundRemove = removeAccountAction.bind(null, slug);
   const boundRetry = retryAccountAction.bind(null, slug);
 
@@ -131,12 +134,37 @@ export default async function LadderSettingsPage({
           <section className="mt-10 rounded-md border border-hair bg-panel p-5">
             <h2 className="text-sub font-semibold text-ink">Ajouter un compte</h2>
             <p className="mt-1.5 mb-5 text-[0.8125rem] text-ink-3">
-              Le rang, l&apos;icône, le poste et l&apos;historique sont résolus
-              automatiquement au relevé suivant — au plus tard dans{" "}
-              {Math.round(refreshIntervalMs() / 60_000)} minutes, ou tout de
-              suite avec « Relever maintenant ».
+              Le rang, l&apos;icône, le poste et l&apos;historique sont relevés
+              immédiatement à l&apos;ajout. Si le Riot ID est introuvable, tu le
+              sauras tout de suite.
             </p>
             <AddAccountForm action={boundAdd} />
+          </section>
+
+          {/* — Brancher sur un serveur Discord — */}
+          <section className="mt-10 rounded-md border border-hair bg-panel p-5">
+            <h2 className="text-sub font-semibold text-ink">
+              Brancher sur un serveur Discord
+            </h2>
+            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-ink-3">
+              Sur ton propre serveur, un{" "}
+              <span className="num text-ink-2">/ladder lier {slug}</span> suffit.
+            </p>
+            <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-3">
+              Sur le serveur de quelqu&apos;un d&apos;autre, il faut le
+              consentement des deux côtés : toi qui possèdes ce ladder, et un
+              administrateur de ce serveur. Engendre un code, passe-le-lui, il
+              le saisira dans{" "}
+              <span className="num text-ink-2">/ladder lier</span>. Valable{" "}
+              {Math.round(DUREE_CODE_MS / 60_000)} minutes, une seule fois.
+            </p>
+            <div className="mt-5">
+              <SyncButton
+                action={boundLinkCode}
+                label="Engendrer un code"
+                pendingLabel="Génération…"
+              />
+            </div>
           </section>
 
           {/* — Liste — */}

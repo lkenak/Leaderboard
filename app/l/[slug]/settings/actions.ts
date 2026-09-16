@@ -13,6 +13,7 @@ import {
   type LadderRecord,
 } from "@/lib/db/ladders";
 import { refreshLadder, resumerReleve } from "@/lib/riot/refresh";
+import { DUREE_CODE_MS, createLinkCode } from "@/lib/db/link-codes";
 import { REGIONS } from "@/lib/riot/routing";
 import { ROLES, type Region, type Role } from "@/lib/types";
 
@@ -186,5 +187,33 @@ export async function syncNowAction(
   return {
     ok: resultat.statut === "fait" && resultat.report.errors.length === 0,
     message: resumerReleve(resultat),
+  };
+}
+
+/**
+ * Engendre un code de liaison pour ce ladder.
+ *
+ * Il sert quand le propriétaire du ladder et l'administrateur du serveur ne
+ * sont pas la même personne — le cas courant dès qu'on sort de son propre
+ * serveur. Sans lui, `/ladder lier` exige les deux casquettes à la fois et
+ * personne ne peut relier quoi que ce soit.
+ */
+export async function createLinkCodeAction(
+  slug: string,
+  _prev: ActionResult | null,
+  _form?: FormData,
+): Promise<ActionResult> {
+  const guard = await guardOwner(slug);
+  if (isGuardFailure(guard)) return guard;
+
+  const code = createLinkCode(guard.ladder.id, guard.userId);
+  revalidatePath(`/l/${slug}/settings`);
+
+  return {
+    ok: true,
+    message:
+      `Code : ${code.code} — valable ${Math.round(DUREE_CODE_MS / 60_000)} minutes, ` +
+      "une seule fois. À passer à un administrateur du serveur, qui fera " +
+      `/ladder lier slug:${slug} code:${code.code}`,
   };
 }

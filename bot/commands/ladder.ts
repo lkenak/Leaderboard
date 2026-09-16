@@ -16,7 +16,8 @@ import {
   setReportChannel,
   unlinkLadderFromGuild,
 } from "@/lib/db/discord-guilds";
-import { getLadderBySlug } from "@/lib/db/ladders";
+import { getLadderBySlug, type LadderRecord } from "@/lib/db/ladders";
+import { consumeLinkCode } from "@/lib/db/link-codes";
 import { laddersForUser } from "@/lib/db/users";
 import { shortDate } from "@/lib/format";
 import { loadEnv } from "../env";
@@ -33,12 +34,17 @@ import { messageEtat, resoudre } from "../liens";
  *  - sans l'accord d'un administrateur du serveur, n'importe quel membre
  *    pourrait faire poster le bot dans un salon.
  *
- * En v1 on exige donc les deux **sur la même personne** : propriétaire du
- * ladder ET `ManageGuild` sur le serveur. C'est le cas réel dans la quasi-
- * totalité des situations (c'est ton serveur, c'est ton ladder). Le cas où
- * les deux rôles sont tenus par deux personnes passera par les codes de
- * liaison (`ladder_link_codes`, table déjà créée en 0004), au lot suivant —
- * d'ici là le message de refus doit le dire, sinon il est incompréhensible.
+ * Les deux accords sont exigés, mais **pas forcément de la même personne** :
+ *
+ *  - sur son propre serveur, être propriétaire du ladder et administrateur
+ *    suffit — un seul geste ;
+ *  - ailleurs, le propriétaire engendre un **code de liaison** depuis les
+ *    réglages de son ladder, et l'administrateur le saisit ici. Chacun agit
+ *    dans son domaine sans avoir besoin des droits de l'autre.
+ *
+ * Exiger les deux casquettes sur une seule tête ne marchait que chez soi :
+ * dès qu'on sort de son propre serveur, cette personne n'existe pas, et
+ * personne ne pouvait relier quoi que ce soit.
  *
  * `setDefaultMemberPermissions` **masque** la commande aux non-administrateurs,
  * et la vérification en tête d'`execute` la **refuse** : les permissions par
@@ -64,8 +70,7 @@ export const data = new SlashCommandBuilder()
       .addStringOption((o) =>
         o
           .setName("slug")
-          .setDescription("Le ladder à relier.")
-          .setRequired(true)
+          .setDescription("Le ladder à relier — inutile si tu fournis un code.")
           .setAutocomplete(true),
       )
       .addChannelOption((o) =>
@@ -73,6 +78,13 @@ export const data = new SlashCommandBuilder()
           .setName("salon")
           .setDescription("Salon des comptes rendus de partie (facultatif).")
           .addChannelTypes(ChannelType.GuildText),
+      )
+      .addStringOption((o) =>
+        o
+          .setName("code")
+          .setDescription(
+            "Code fourni par le propriétaire, si le ladder n'est pas le tien.",
+          ),
       ),
   )
   .addSubcommand((c) =>
@@ -216,15 +228,58 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       return repondre(messageEtat(lien, env.publicUrl, true));
     }
 
-    const ladder = getLadderBySlug(slugDemande!);
-    if (!ladder) return repondre(`Aucun ladder « ${slugDemande} ».`);
+    /* Deux chemins, un seul principe : le propriétaire du ladder doit avoir
+       donné son accord.
+         - c'est toi → la propriété suffit ;
+         - ce n'est pas toi → il te faut un code qu'il a engendré.
 
-    if (ladder.ownerUserId !== lien.utilisateur.id) {
-      return repondre(
-        `**${ladder.name}** ne t'appartient pas. En attendant les codes de liaison, ` +
-          "seul le propriétaire d'un ladder peut le relier à un serveur — et il doit " +
-          "aussi être administrateur de ce serveur.",
-      );
+       Sans ce second chemin, un ladder ne pouvait être relié qu'à un serveur
+       dont son propriétaire était administrateur. Dès qu'on sort de son propre
+       serveur, cette personne n'existe pas : l'administrateur n'est pas le
+       propriétaire, et le propriétaire n'est pas administrateur. Personne ne
+       pouvait relier quoi que ce soit, et le bot restait muet. */
+    const codeSaisi = interaction.options.getString("code");
+    let ladder: LadderRecord | null;
+
+    if (codeSaisi) {
+      // Le code est consommé ici, donc avant toute autre validation qui
+      // pourrait échouer. À dire clairement à qui le saisit : un code refusé
+      // plus loin serait perdu pour rien.
+      const res = consumeLinkCode(codeSaisi, interaction.guildId);
+      if (!res.ok) {
+        const raisons: Record<typeof res.raison, string> = {
+          inconnu: "Ce code n'existe pas — vérifie la saisie.",
+          expiré: "Ce code a expiré. Demande-lui d'en engendrer un nouveau.",
+          "déjà-utilisé": "Ce code a déjà servi. Les codes ne valent qu'une fois.",
+          "ladder-supprimé": "Le ladder de ce code n'existe plus.",
+        };
+        return repondre(raisons[res.raison]);
+      }
+      ladder = res.ladder;
+
+      if (slugDemande && slugDemande !== ladder.slug) {
+        return repondre(
+          `Ce code concerne **${ladder.name}**, pas « ${slugDemande} ». ` +
+            "Il vient d'être consommé : demandes-en un nouveau.",
+        );
+      }
+    } else {
+      if (!slugDemande) {
+        return repondre(
+          "Précise quel ladder relier — soit `slug`, si c'est le tien, soit " +
+            "`code`, si son propriétaire t'en a donné un.",
+        );
+      }
+      ladder = getLadderBySlug(slugDemande);
+      if (!ladder) return repondre(`Aucun ladder « ${slugDemande} ».`);
+
+      if (ladder.ownerUserId !== lien.utilisateur.id) {
+        return repondre(
+          `**${ladder.name}** ne t'appartient pas. Demande à son propriétaire ` +
+            "d'engendrer un code depuis les réglages du ladder, puis relance " +
+            "`/ladder lier` avec l'option `code`.",
+        );
+      }
     }
 
     const salon = interaction.options.getChannel("salon");
