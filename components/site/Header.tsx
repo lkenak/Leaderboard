@@ -26,8 +26,18 @@ export interface HeaderLadder {
  * Le site étant multi-ladder et l'accueil étant un classement, la nav porte un
  * **sélecteur de ladder** plutôt qu'un lien figé : c'est ce qui permet
  * d'atterrir sur du contenu et de passer d'un ladder à l'autre sans repasser
- * par une page de gestion. La gestion vit derrière « Tous mes ladders » et
- * « Mes comptes Riot », en bas du menu.
+ * par une page de gestion.
+ *
+ * **Deux natures de navigation, deux endroits.** À gauche, se déplacer dans le
+ * contenu : quel classement je regarde. À droite, sous l'avatar, tout ce qui
+ * me concerne : mes comptes Riot, mes ladders, la déconnexion.
+ *
+ * Elles étaient mélangées — « Mes comptes Riot » se trouvait en bas du
+ * sélecteur de ladder, donc à deux niveaux de profondeur, derrière un bouton
+ * portant le nom d'un ladder. Quelqu'un qui arrivait sans ladder n'avait même
+ * pas ce sélecteur, et la page de ses comptes n'était atteignable que par un
+ * lien en petit dans un paragraphe de `/ladders`. Le menu du compte est
+ * l'endroit où l'on cherche ses réglages ; il fallait qu'ils y soient.
  */
 export function Header({
   liveCount,
@@ -112,13 +122,6 @@ export function Header({
                     >
                       Tous mes ladders
                     </Link>
-                    <Link
-                      href="/profil"
-                      onClick={close}
-                      className={cn(itemClass, "text-ink-3 hover:bg-panel-3 hover:text-ink")}
-                    >
-                      Mes comptes Riot
-                    </Link>
                   </>
                 )}
               </Popover>
@@ -146,30 +149,64 @@ export function Header({
           )}
 
           {user ? (
-            <div className="hidden items-center gap-2.5 sm:flex">
-              {user.avatar && (
-                // eslint-disable-next-line @next/next/no-img-element -- source distante, taille fixe, cf. components/ui/Avatar.tsx
-                <img
-                  src={user.avatar}
-                  alt=""
-                  width={24}
-                  height={24}
-                  className="size-6 shrink-0 rounded-full ring-1 ring-hair"
-                />
-              )}
-              <span className="max-w-[10ch] truncate text-[0.8125rem] text-ink-2">
-                {user.name}
-              </span>
-              {/* `contents` : le <form> ne doit pas devenir une boîte bloc qui
-                  casse l'alignement flex de ses voisins (avatar, pseudo). */}
-              <form action={signOutAction} className="contents">
-                <button
-                  type="submit"
-                  className="num shrink-0 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-ink-4 transition-colors duration-150 hover:text-ink-2"
-                >
-                  Déconnexion
-                </button>
-              </form>
+            /* Le menu du compte. C'est ici qu'on cherche ses réglages, donc
+               c'est ici que « Mes comptes Riot » doit être — et non au fond
+               du sélecteur de ladder, où il était invisible. */
+            <div className="hidden sm:block">
+              <Popover
+                align="right"
+                title="Mon compte"
+                label={
+                  <span className="flex items-center gap-2">
+                    {user.avatar && (
+                      // eslint-disable-next-line @next/next/no-img-element -- source distante, taille fixe, cf. components/ui/Avatar.tsx
+                      <img
+                        src={user.avatar}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="size-5 shrink-0 rounded-full ring-1 ring-hair"
+                      />
+                    )}
+                    <span className="max-w-[12ch] truncate">{user.name}</span>
+                  </span>
+                }
+              >
+                {(close) => (
+                  <>
+                    <Link
+                      href="/profil"
+                      onClick={close}
+                      className={cn(itemClass, "text-ink-2 hover:bg-panel-3 hover:text-ink")}
+                    >
+                      Mes comptes Riot
+                    </Link>
+                    <Link
+                      href="/ladders"
+                      onClick={close}
+                      className={cn(itemClass, "text-ink-2 hover:bg-panel-3 hover:text-ink")}
+                    >
+                      Mes ladders
+                    </Link>
+                    <Link
+                      href="/ladders/new"
+                      onClick={close}
+                      className={cn(itemClass, "text-ink-2 hover:bg-panel-3 hover:text-ink")}
+                    >
+                      Créer un ladder
+                    </Link>
+                    <div className="my-1 h-px bg-hair" />
+                    <form action={signOutAction}>
+                      <button
+                        type="submit"
+                        className={cn(itemClass, "text-ink-4 hover:bg-panel-3 hover:text-ink-2")}
+                      >
+                        Déconnexion
+                      </button>
+                    </form>
+                  </>
+                )}
+              </Popover>
             </div>
           ) : (
             <Link
@@ -225,21 +262,33 @@ export function Header({
                     </Link>
                   </li>
                 ))}
+                {/* Même séparation qu'en grand écran : les ladders au-dessus
+                    (du contenu), mon compte en dessous (des réglages). */}
                 <li className="my-1 h-px bg-hair" aria-hidden />
                 <li>
                   <Link
                     href="/ladders"
                     onClick={() => setOpen(false)}
-                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-3"
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-2"
                   >
                     Tous mes ladders
                   </Link>
                 </li>
                 <li>
                   <Link
+                    href="/ladders/new"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-2"
+                  >
+                    Créer un ladder
+                  </Link>
+                </li>
+                <li className="my-1 h-px bg-hair" aria-hidden />
+                <li>
+                  <Link
                     href="/profil"
                     onClick={() => setOpen(false)}
-                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink-3"
+                    className="flex items-center py-3 text-[0.9375rem] font-medium text-ink"
                   >
                     Mes comptes Riot
                   </Link>
@@ -248,7 +297,7 @@ export function Header({
                   <form action={signOutAction}>
                     <button
                       type="submit"
-                      className="flex w-full items-center py-3 text-[0.9375rem] font-medium text-ink-3"
+                      className="flex w-full items-center py-3 text-[0.9375rem] font-medium text-ink-4"
                     >
                       Déconnexion
                     </button>

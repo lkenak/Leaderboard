@@ -53,13 +53,25 @@ export default async function LaddersPage() {
                   : `${thousands(owned.length + appearingIn.length)} ladder${owned.length + appearingIn.length > 1 ? "s" : ""}`}
               </h1>
             </div>
-            <Link
-              href="/ladders/new"
-              className="num flex h-10 items-center gap-1.5 rounded-sm bg-acid px-4 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-acid-ink transition-[filter] duration-150 hover:brightness-110"
-            >
-              <span aria-hidden>+</span>
-              Créer un ladder
-            </Link>
+            {/* Deux actions de même rang : créer un ladder, et déclarer ses
+                comptes. La seconde n'était qu'un lien souligné au milieu d'un
+                paragraphe plus bas — invisible pour qui arrive ici la première
+                fois, alors que c'est le point de départ de tout le reste. */}
+            <div className="flex items-center gap-2">
+              <Link
+                href="/profil"
+                className="num flex h-10 items-center rounded-sm border border-hair bg-panel-3/60 px-4 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-ink-2 transition-colors duration-150 hover:border-acid/50 hover:text-acid"
+              >
+                Mes comptes Riot
+              </Link>
+              <Link
+                href="/ladders/new"
+                className="num flex h-10 items-center gap-1.5 rounded-sm bg-acid px-4 text-[0.6875rem] font-semibold tracking-[0.1em] uppercase text-acid-ink transition-[filter] duration-150 hover:brightness-110"
+              >
+                <span aria-hidden>+</span>
+                Créer un ladder
+              </Link>
+            </div>
           </div>
 
           {/* — Les miens — */}
