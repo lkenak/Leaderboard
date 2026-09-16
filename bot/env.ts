@@ -18,9 +18,12 @@ export interface BotEnv {
   /** Le Client ID de l'onglet OAuth2 — la même application que la connexion du site. */
   applicationId: string;
   /**
-   * Serveur de test. Quand elle est définie, les commandes sont publiées sur
-   * ce seul serveur : visibles immédiatement, au lieu du délai de propagation
-   * des commandes globales.
+   * Serveur où les commandes doivent apparaître **tout de suite**.
+   *
+   * La publication globale met jusqu'à une heure à se propager. Quand cette
+   * variable est définie, `bot:commands` publie en plus sur ce serveur, où
+   * c'est immédiat — sans remplacer la publication globale, qui reste la
+   * référence (voir `bot/register-commands.ts`).
    */
   devGuildId: string | null;
   /** Pour les liens cliquables des messages. */

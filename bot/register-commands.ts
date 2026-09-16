@@ -9,34 +9,48 @@ import { loadEnv } from "./env";
  * 200 par jour ; un service en `Restart=always` qui republierait à chaque
  * démarrage brûlerait le quota en une matinée de déploiements.
  *
- * Portée :
- *  - `DISCORD_DEV_GUILD_ID` définie → publication sur ce seul serveur, visible
- *    immédiatement. C'est le mode d'itération.
- *  - sinon → publication globale. C'est le bon choix en production : un
- *    ladder peut être lié à plusieurs serveurs, et les serveurs arrivent par
- *    invitation OAuth — il n'y a pas de liste de serveurs à tenir.
+ * **Deux portées, et non l'une ou l'autre.**
+ *
+ * La publication globale est la bonne en production — un ladder peut être lié
+ * à plusieurs serveurs, et les serveurs arrivent par invitation OAuth, il n'y
+ * a donc pas de liste à tenir. Mais Discord met **jusqu'à une heure** à la
+ * propager : après un déploiement, les nouvelles commandes n'apparaissent
+ * nulle part, et rien ne distingue cette attente d'une panne.
+ *
+ * Quand `DISCORD_DEV_GUILD_ID` est définie, on publie donc **aussi** sur ce
+ * serveur, où la propagation est immédiate. Une commande de serveur prend le
+ * pas sur la commande globale de même nom : pas de doublon dans la liste, et
+ * les deux copies restent identiques puisqu'elles sont écrites dans le même
+ * appel.
+ *
+ * Publier les deux plutôt que l'une ou l'autre, c'est ce qui évite le piège
+ * inverse : un jeu de commandes de serveur à jour masquant indéfiniment un
+ * global périmé.
  */
 
 async function publier(): Promise<void> {
   const env = loadEnv();
   const corps = COMMANDES.map((c) => c.data.toJSON());
   const rest = new REST().setToken(env.token);
+  const noms = corps.map((c) => `/${c.name}`).join(", ");
 
-  const route = env.devGuildId
-    ? Routes.applicationGuildCommands(env.applicationId, env.devGuildId)
-    : Routes.applicationCommands(env.applicationId);
+  await rest.put(Routes.applicationCommands(env.applicationId), { body: corps });
+  console.log(`[bot] ${corps.length} commande(s) publiée(s) globalement : ${noms}`);
 
-  const portee = env.devGuildId ? `le serveur ${env.devGuildId}` : "toutes les installations";
-
-  await rest.put(route, { body: corps });
-
-  console.log(
-    `[bot] ${corps.length} commande(s) publiée(s) sur ${portee} : ` +
-      corps.map((c) => `/${c.name}`).join(", "),
-  );
   if (!env.devGuildId) {
-    console.log("[bot] publication globale : la propagation peut prendre quelques minutes.");
+    console.log(
+      "[bot] la propagation globale peut prendre jusqu'à une heure. Définir " +
+        "DISCORD_DEV_GUILD_ID pour publier aussi sur un serveur, où c'est immédiat.",
+    );
+    return;
   }
+
+  await rest.put(Routes.applicationGuildCommands(env.applicationId, env.devGuildId), {
+    body: corps,
+  });
+  console.log(
+    `[bot] et sur le serveur ${env.devGuildId}, où elles sont disponibles tout de suite.`,
+  );
 }
 
 // Pas d'`await` de premier niveau : tsx transpile `bot/` en CommonJS.
