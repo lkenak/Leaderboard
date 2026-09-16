@@ -8,20 +8,15 @@ export function Footer({ updatedLabel }: { updatedLabel: string }) {
         <div className="max-w-sm">
           <Logo />
           <p className="mt-4 text-[0.8125rem] leading-relaxed text-ink-3">
-            Suivi de classement SoloQ pour un plateau de joueurs choisi. Les
-            rangs, les parties et les variations de LP sont relevés en continu et
-            recalculés à chaque partie terminée.
+            Classements SoloQ entre amis. Chaque ladder relève en continu les
+            rangs, les parties et les variations de LP de ses membres.
           </p>
           <p className="num mt-4 text-micro tracking-[0.1em] text-ink-4">
             RELEVÉ · {updatedLabel}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-12 gap-y-6 sm:grid-cols-3">
-          <FooterColumn
-            title="Classement"
-            items={["High elo", "Low elo", "Historique", "Records"]}
-          />
+        <div className="grid grid-cols-2 gap-x-12 gap-y-6">
           <FooterColumn
             title="Données"
             items={["Riot API", "Data Dragon", "Méthode de calcul", "Statut"]}
