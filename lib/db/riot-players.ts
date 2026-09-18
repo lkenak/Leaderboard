@@ -354,6 +354,59 @@ export function upsertGames(puuid: string, games: GameRecord[]): void {
   run.immediate(games);
 }
 
+export interface EnqueueOptions {
+  /**
+   * `false` au tout premier relevé d'un compte : `match-v5` renvoie vingt
+   * parties d'un coup, et personne ne veut vingt cartes d'un rattrapage
+   * d'historique.
+   */
+  annoncer: boolean;
+  /** Au-delà, la partie n'intéresse plus personne (redémarrage, panne). */
+  ageMaxMs: number;
+  now: number;
+}
+
+/**
+ * Enregistre les parties **et** met les annonçables en file, d'un seul bloc.
+ *
+ * L'atomicité est le point : un plantage entre les deux perdrait la partie
+ * pour toujours. Au cycle suivant elle serait déjà connue, donc absente des
+ * « nouvelles parties », et plus rien ne la signalerait au bot.
+ */
+export function upsertGamesAndEnqueue(
+  puuid: string,
+  games: GameRecord[],
+  options: EnqueueOptions,
+): number {
+  if (games.length === 0) return 0;
+  const db = getDb();
+
+  const inserer = db.prepare(
+    `INSERT OR IGNORE INTO games
+       (puuid, id, champion_id, champion_name, role, win, kills, deaths, assists, lp_delta, duration_sec, ended_at, cs, vision_score)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const enfiler = db.prepare(
+    `INSERT INTO game_events (puuid, match_id, ended_at, created_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(puuid, match_id) DO NOTHING`,
+  );
+
+  let enfilees = 0;
+  const run = db.transaction((rows: GameRecord[]) => {
+    for (const g of rows) {
+      inserer.run(puuid, g.id, g.championId, g.championName, g.role, g.win ? 1 : 0, g.kills, g.deaths, g.assists, g.lpDelta, g.durationSec, g.endedAt, g.cs, g.visionScore);
+
+      if (!options.annoncer) continue;
+      if (options.now - g.endedAt > options.ageMaxMs) continue;
+      enfilees += enfiler.run(puuid, g.id, g.endedAt, options.now).changes;
+    }
+  });
+  run.immediate(games);
+
+  return enfilees;
+}
+
 /** Met à jour un delta de LP déjà connu (remplissage par encadrement de relevés). */
 export function setGameLpDelta(puuid: string, gameId: string, lpDelta: number): void {
   getDb().prepare("UPDATE games SET lp_delta = ? WHERE puuid = ? AND id = ?").run(lpDelta, puuid, gameId);

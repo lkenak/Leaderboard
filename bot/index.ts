@@ -4,6 +4,7 @@ import { ouvrirBase } from "./db";
 import { loadEnv } from "./env";
 import { gererBouton, gererMenu } from "./pp/interactions";
 import { demarrerRappels } from "./pp/rappels";
+import { demarrerRapports } from "./rapports/file";
 
 /**
  * Le bot Discord de SOLOQ/LADDER.
@@ -37,6 +38,10 @@ client.once(Events.ClientReady, (c) => {
   // Balayage des rappels de PP : démarré ici et pas plus tôt, il n'a rien à
   // envoyer tant que la passerelle n'est pas prête.
   demarrerRappels(c);
+  // Comptes rendus d'après-game : consomme la file alimentée par la synchro
+  // Riot. Même raison de le démarrer ici — il n'a rien à envoyer tant que la
+  // passerelle n'est pas prête.
+  demarrerRapports(c);
 
   console.log(
     `[bot] connecté en tant que ${c.user.tag} · ${c.guilds.cache.size} serveur(s) · ` +

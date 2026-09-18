@@ -51,6 +51,15 @@ const RANKED_SOLO_QUEUE_ID = 420;
 const HEARTBEAT_MS = 30 * 60_000;
 const MATCH_PAGE = 20;
 
+/**
+ * Au-delà, une partie terminée n'est plus annoncée.
+ *
+ * Protège du rattrapage après une coupure : au retour du service on
+ * enregistre bien les parties manquées, mais on n'inonde pas le salon de
+ * comptes rendus de la veille.
+ */
+const ANNONCE_AGE_MAX_MS = 3 * 3600_000;
+
 export interface SyncReport {
   startedAt: number;
   durationMs: number;
@@ -59,6 +68,8 @@ export interface SyncReport {
   resolved: number;
   newSamples: number;
   newGames: number;
+  /** Parties mises en file pour un compte rendu Discord. */
+  queued: number;
   inGame: number;
   unranked: string[];
   errors: Array<{ account: string; message: string }>;
@@ -172,6 +183,7 @@ export async function sync(
     resolved: 0,
     newSamples: 0,
     newGames: 0,
+    queued: 0,
     inGame: 0,
     unranked: [],
     errors: [],
@@ -290,7 +302,21 @@ export async function sync(
         }
         if (fresh.length > 0) {
           report.newGames += fresh.length;
-          players.upsertGames(id, fresh);
+          /* Enregistrement et mise en file dans la même transaction : un
+             plantage entre les deux perdrait la partie pour toujours, puisque
+             au cycle suivant elle ne serait plus « nouvelle ».
+
+             L'événement ne porte **pas** le delta de LP. `fillLpDeltas` tourne
+             plus bas et ne l'attribue que si exactement une partie sépare deux
+             relevés ; sinon il reste nul, à jamais et à juste titre. Le bot
+             lira `games.lp_delta` au moment de poster. */
+          report.queued += players.upsertGamesAndEnqueue(id, fresh, {
+            // Jamais au premier relevé d'un compte : match-v5 renvoie vingt
+            // parties d'un coup, personne ne veut vingt cartes de rattrapage.
+            annoncer: known.length > 0,
+            ageMaxMs: ANNONCE_AGE_MAX_MS,
+            now: startedAt,
+          });
         }
       }
 

@@ -22,9 +22,9 @@ import { disableMigrations, getDb } from "@/lib/db/client";
  * La migration la plus récente dont ce code a besoin.
  *
  * À relever dans le même commit que chaque migration dont le bot dépend.
- * Aujourd'hui `0005` : les tables des parties personnalisées.
+ * Aujourd'hui `0006` : la file des comptes rendus d'après-game.
  */
-export const MIGRATION_MINIMALE = "0005_pp_sessions.sql";
+export const MIGRATION_MINIMALE = "0006_game_events.sql";
 
 export interface EtatSchema {
   appliquees: string[];

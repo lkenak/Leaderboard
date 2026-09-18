@@ -256,3 +256,22 @@ export function listMembers(ladderId: string): LadderMemberRecord[] {
     .all(ladderId);
   return rows.map(memberFromRow);
 }
+
+/**
+ * Les ladders qui suivent ce compte.
+ *
+ * Utilisé par les comptes rendus d'après-game : une partie doit être annoncée
+ * dans chaque salon lié à un ladder où le joueur figure — un compte suivi par
+ * deux ladders produit donc deux annonces, dans deux salons différents, ce
+ * qui est le comportement voulu.
+ */
+export function laddersContainingPuuid(puuid: string): LadderRecord[] {
+  return getDb()
+    .prepare<[string], LadderRow>(
+      `SELECT DISTINCT l.* FROM ladders l
+         JOIN ladder_members m ON m.ladder_id = l.id
+        WHERE m.puuid = ?`,
+    )
+    .all(puuid)
+    .map(ladderFromRow);
+}

@@ -252,6 +252,60 @@ export function lobbyAltText(model: LobbyCardModel): string {
   );
 }
 
+/* ── Compte rendu d'après-game ────────────────────────────────────────────── */
+
+export interface GameCardPlayer {
+  name: string;
+  championIcon: string;
+  championName: string;
+  role: Role | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kdaLabel: string;
+  cs: number;
+  visionScore: number;
+  /** `null` quand la variation est inconnue — ce n'est pas zéro. */
+  lpDelta: number | null;
+  tier: Tier;
+  division: string | null;
+  /** Libellé court (« E2 »), pour les textes — la carte dessine la pastille. */
+  rankShort: string;
+  leaguePoints: number;
+  /** Position dans le ladder après la partie, `null` hors classement. */
+  position: number | null;
+  positionDelta: number | null;
+  streak: { type: "win" | "loss"; count: number } | null;
+}
+
+export interface GameCardModel {
+  win: boolean;
+  durationLabel: string;
+  endedAt: number;
+  ladderName: string;
+  total: number;
+  url: string | null;
+  /** Les membres du ladder présents dans cette partie, gagnants d'abord. */
+  players: GameCardPlayer[];
+}
+
+export function gameAltText(model: GameCardModel): string {
+  const lignes = model.players.map((p) =>
+    [
+      `${p.name} — ${p.championName}`,
+      `${p.kills}/${p.deaths}/${p.assists}`,
+      `${p.cs} CS`,
+      `${p.visionScore} de vision`,
+      deltaLabel(p.lpDelta, " LP"),
+      `${p.rankShort} ${p.leaguePoints} LP`,
+    ].join(", "),
+  );
+  return (
+    `${model.win ? "Victoire" : "Défaite"} en ${model.durationLabel} sur ${model.ladderName}. ` +
+    `${lignes.join(". ")}.`
+  );
+}
+
 /* ── Textes qui accompagnent l'image ──────────────────────────────────────── */
 
 /** `+24`, `-17`, `—` quand la variation est inconnue. */
