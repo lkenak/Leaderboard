@@ -119,14 +119,28 @@ async function main(): Promise<void> {
         continue;
       }
 
-      const { samples, games } = compter(id.puuid);
-      const deja = db
-        .prepare<[string], { puuid: string }>("SELECT puuid FROM riot_players WHERE puuid = ?")
-        .get(dto.puuid);
+      const existe = (puuid: string) =>
+        Boolean(
+          db
+            .prepare<[string], { puuid: string }>("SELECT puuid FROM riot_players WHERE puuid = ?")
+            .get(puuid),
+        );
 
-      if (deja) {
-        // Le nouveau PUUID est déjà connu : fusionner demanderait d'arbitrer
-        // deux historiques, ce qui n'a pas de bonne réponse automatique.
+      // Deux déclarations du même compte à la casse près — « x9Jgl#ff15 » et
+      // « x9jgl#ff15 » — partagent le même PUUID et apparaissent deux fois
+      // dans la liste, qui a été lue avant la première écriture. Au second
+      // passage l'ancien a déjà disparu : c'est fait, pas un échec.
+      if (!existe(id.puuid) && existe(dto.puuid)) {
+        inchanges++;
+        continue;
+      }
+
+      const { samples, games } = compter(id.puuid);
+
+      if (existe(dto.puuid)) {
+        // Le nouveau PUUID est déjà connu pour un AUTRE compte : fusionner
+        // demanderait d'arbitrer deux historiques, ce qui n'a pas de bonne
+        // réponse automatique.
         echecs.push(`${label} — le nouveau PUUID existe déjà en base, fusion à faire à la main`);
         continue;
       }
