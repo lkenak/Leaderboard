@@ -14,7 +14,8 @@
     "bot": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs bot/index.ts",
     "bot:dev": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs watch bot/index.ts",
     "bot:commands": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs bot/register-commands.ts",
-    "prebuild": "node scripts/check-card-tokens.mjs"
+    "prebuild": "node scripts/check-card-tokens.mjs",
+    "riot:remap": "node --env-file-if-exists=.env.local ./node_modules/tsx/dist/cli.mjs scripts/remap-puuids.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",
