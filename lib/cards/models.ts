@@ -330,11 +330,29 @@ export interface SoireeCardModel {
   ladderName: string;
   debut: number;
   fin: number;
+  /** « 19 sept. · 21:04 → 23:47 », déjà mis en forme (voir `soireePeriodeLabel`). */
+  periodeLabel: string;
   /** Parties distinctes, une partie jouée à trois du ladder comptant pour une. */
   parties: number;
   url: string | null;
   /** Meilleure progression d'abord — c'est le classement de la soirée. */
   joueurs: SoireeJoueurModel[];
+}
+
+/**
+ * La période couverte, sous une forme qui ne peut pas mentir.
+ *
+ * Deux heures seules suffisent pour une soirée ordinaire, mais elles se lisent
+ * « 12:35 → 12:35 » dès que la fenêtre fait un tour d'horloge, et une soirée
+ * qui passe minuit tombe exactement dans ce piège. La date apparaît donc dès
+ * que les deux bornes ne sont pas le même jour.
+ */
+export function soireePeriodeLabel(debut: number, fin: number): string {
+  const jour = (ts: number) => new Date(ts).toDateString();
+  if (jour(debut) === jour(fin)) {
+    return `${shortDate(fin)} · ${clockTime(debut)} → ${clockTime(fin)}`;
+  }
+  return `${shortDate(debut)} ${clockTime(debut)} → ${shortDate(fin)} ${clockTime(fin)}`;
 }
 
 export function soireeAltText(model: SoireeCardModel): string {
@@ -347,8 +365,8 @@ export function soireeAltText(model: SoireeCardModel): string {
     ].join(", "),
   );
   return (
-    `Résumé de ${model.ladderName}, ${model.parties} partie(s) entre ` +
-    `${clockTime(model.debut)} et ${clockTime(model.fin)}. ${lignes.join(". ")}.`
+    `Résumé de ${model.ladderName}, ${model.parties} partie(s), ` +
+    `${model.periodeLabel}. ${lignes.join(". ")}.`
   );
 }
 

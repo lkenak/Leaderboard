@@ -79,9 +79,9 @@ function Joueur({ j, rang }: { j: SoireeJoueurModel; rang: number }) {
         <div style={{ display: "flex", ...num(19, 400, COLOR.ink4) }}>D</div>
       </div>
 
-      {/* La variation nette : le chiffre de la soirée. L'astérisque dit que
-          des parties manquent à l'appel, sans quoi un total amputé se lirait
-          comme un total. */}
+      {/* La variation nette : le chiffre de la soirée. La mention « total
+          partiel » dit que des parties manquent à l'appel, sans quoi un total
+          amputé se lirait comme un total. */}
       <div style={{ display: "flex", flexDirection: "column", gap: 3, width: 165, flexShrink: 0 }}>
         <DeltaText value={j.lpNet} size={32} suffix=" LP" />
         {j.partiel && (
@@ -107,7 +107,7 @@ function Joueur({ j, rang }: { j: SoireeJoueurModel; rang: number }) {
               >
                 {`#${j.position}`}
               </div>
-              <PositionDelta delta={j.positionDelta} />
+              {j.positionDelta !== null && <PositionDelta delta={j.positionDelta} />}
             </div>
           )}
         </div>
@@ -157,7 +157,7 @@ export function SoireeCard({ model }: { model: SoireeCardModel }) {
           {/* Horaires absolus, jamais « il y a 2 h » : gravé dans un PNG, un
               relatif ment dès la minute suivante dans l'historique Discord. */}
           <div style={{ display: "flex", ...num(18, 400, COLOR.ink4) }}>
-            {`${heure(model.debut)} → ${heure(model.fin)} · ${model.parties} partie${
+            {`${model.periodeLabel} · ${model.parties} partie${
               model.parties > 1 ? "s" : ""
             }`}
           </div>
@@ -195,10 +195,4 @@ export function SoireeCard({ model }: { model: SoireeCardModel }) {
       <Rail width="22%" color={accent} />
     </Frame>
   );
-}
-
-/** `00:04`, pas `0:4`. */
-function heure(ts: number): string {
-  const d = new Date(ts);
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }

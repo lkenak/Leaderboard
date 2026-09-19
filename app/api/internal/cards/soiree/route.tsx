@@ -4,10 +4,12 @@ import { asset } from "@/lib/cards/assets";
 import { refuseNonAutorise } from "@/lib/cards/internal-auth";
 import {
   soireeAltText,
+  soireePeriodeLabel,
   soireeSummary,
   type SoireeCardModel,
   type SoireeJoueurModel,
 } from "@/lib/cards/models";
+import { LADDER_CARD } from "@/lib/cards/layout";
 import { renderCard } from "@/lib/cards/render";
 import { getLadderBySlug } from "@/lib/db/ladders";
 import { listGames } from "@/lib/db/riot-players";
@@ -123,14 +125,20 @@ export async function GET(request: NextRequest) {
     return b.lpNet - a.lpNet;
   });
 
+  /* Plafond aligné sur celui de la carte de classement : au-delà, la carte
+     devient illisible une fois réduite par Discord. Ceux qu'on retire sont
+     ceux qui ont le moins bougé, et le compte des parties n'est pas amputé —
+     il décrit la soirée, pas les lignes affichées. */
+  const affiches = joueurs.slice(0, LADDER_CARD.maxRows);
   const publicUrl = (process.env.LADDER_PUBLIC_URL ?? "").replace(/\/+$/, "");
   const model: SoireeCardModel = {
     ladderName: ladder.name,
     debut: depuis,
     fin: jusqua,
+    periodeLabel: soireePeriodeLabel(depuis, jusqua),
     parties: matchs.size,
     url: publicUrl ? `${publicUrl}/l/${ladder.slug}` : null,
-    joueurs,
+    joueurs: affiches,
   };
 
   const textes = {
