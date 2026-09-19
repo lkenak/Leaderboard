@@ -16,9 +16,12 @@ import type { Tier } from "@/lib/types";
  *  - **c'est un décor, pas du contenu.** `aria-hidden` et
  *    `pointer-events-none` : un lecteur d'écran n'a rien à y lire, et rien
  *    n'y est cliquable. Le texte du titre reste seul à porter le sens.
- *  - **les joueurs sont fictifs et le disent.** Inventer des pseudos
- *    plausibles plutôt que reprendre de vrais comptes : personne n'a demandé
- *    à figurer sur une page d'accueil.
+ *  - **les joueurs sont fictifs, et ça se vérifie.** Personne n'a demandé à
+ *    figurer sur une page d'accueil publique. La première version de ce
+ *    fichier affichait douze vrais comptes du plateau : des pseudos
+ *    « inventés » de bonne foi, mais repris sans le savoir à la base. Un
+ *    pseudo plausible n'est pas un pseudo libre — avant d'ajouter un nom ici,
+ *    le confronter à `riot_players.game_name` et `ladder_members.game_name`.
  *  - **le mouvement s'arrête** pour qui a désactivé les animations —
  *    `globals.css` neutralise toutes les animations sous
  *    `prefers-reduced-motion`, celles-ci comprises.
@@ -44,25 +47,25 @@ interface Ligne {
  */
 const BANDES: Ligne[][] = [
   [
-    { position: 1, nom: "Tornade2Feuj", tier: "DIAMOND", division: "II", lp: 74, delta: 24, forme: [true, true, false, true, true] },
-    { position: 2, nom: "Zelgola", tier: "EMERALD", division: "I", lp: 12, delta: -17, forme: [false, true, false, false, true] },
-    { position: 3, nom: "poketony", tier: "EMERALD", division: "III", lp: 55, delta: 8, forme: [true, false, true, true, false] },
-    { position: 4, nom: "yla", tier: "PLATINUM", division: "I", lp: 91, delta: 31, forme: [true, true, true, false, true] },
-    { position: 5, nom: "Blix", tier: "PLATINUM", division: "IV", lp: 8, delta: -12, forme: [false, false, true, false, false] },
+    { position: 1, nom: "Cassoulet Diff", tier: "DIAMOND", division: "II", lp: 74, delta: 24, forme: [true, true, false, true, true] },
+    { position: 2, nom: "Pingouin Vertical", tier: "EMERALD", division: "I", lp: 12, delta: -17, forme: [false, true, false, false, true] },
+    { position: 3, nom: "Mamie Ashe", tier: "EMERALD", division: "III", lp: 55, delta: 8, forme: [true, false, true, true, false] },
+    { position: 4, nom: "Tartiflette OTP", tier: "PLATINUM", division: "I", lp: 91, delta: 31, forme: [true, true, true, false, true] },
+    { position: 5, nom: "Chaussette Gauche", tier: "PLATINUM", division: "IV", lp: 8, delta: -12, forme: [false, false, true, false, false] },
   ],
   [
-    { position: 1, nom: "A Dead Man", tier: "MASTER", division: null, lp: 312, delta: 42, forme: [true, true, true, true, false] },
-    { position: 2, nom: "ReaperOfMars", tier: "DIAMOND", division: "IV", lp: 37, delta: -21, forme: [false, true, false, true, false] },
-    { position: 3, nom: "oCaptnMyCaptain", tier: "GOLD", division: "II", lp: 64, delta: 15, forme: [true, false, true, true, true] },
-    { position: 4, nom: "alain trop loin", tier: "SILVER", division: "I", lp: 43, delta: -9, forme: [false, false, true, false, true] },
-    { position: 5, nom: "Garen en Mclaren", tier: "BRONZE", division: "III", lp: 27, delta: 11, forme: [true, true, false, false, true] },
+    { position: 1, nom: "Jungle Sans Permis", tier: "MASTER", division: null, lp: 312, delta: 42, forme: [true, true, true, true, false] },
+    { position: 2, nom: "Yordle Fiscal", tier: "DIAMOND", division: "IV", lp: 37, delta: -21, forme: [false, true, false, true, false] },
+    { position: 3, nom: "Panique En Bot", tier: "GOLD", division: "II", lp: 64, delta: 15, forme: [true, false, true, true, true] },
+    { position: 4, nom: "Ctrl Alt Suppr", tier: "SILVER", division: "I", lp: 43, delta: -9, forme: [false, false, true, false, true] },
+    { position: 5, nom: "Le Stagiaire", tier: "BRONZE", division: "III", lp: 27, delta: 11, forme: [true, true, false, false, true] },
   ],
   [
-    { position: 1, nom: "T1Back2Back", tier: "GRANDMASTER", division: null, lp: 641, delta: 18, forme: [true, true, false, true, true] },
-    { position: 2, nom: "BangalaDuCongo", tier: "DIAMOND", division: "I", lp: 88, delta: -6, forme: [true, false, false, true, false] },
-    { position: 3, nom: "x9Jgl", tier: "PLATINUM", division: "II", lp: 19, delta: 27, forme: [true, true, true, false, false] },
-    { position: 4, nom: "Nemo", tier: "IRON", division: "IV", lp: 4, delta: -14, forme: [false, false, false, true, false] },
-    { position: 5, nom: "Kam", tier: "GOLD", division: "IV", lp: 71, delta: 22, forme: [false, true, true, true, false] },
+    { position: 1, nom: "Raclette 2000", tier: "GRANDMASTER", division: null, lp: 641, delta: 18, forme: [true, true, false, true, true] },
+    { position: 2, nom: "Bilan Comptable", tier: "DIAMOND", division: "I", lp: 88, delta: -6, forme: [true, false, false, true, false] },
+    { position: 3, nom: "Trente Deux Ping", tier: "PLATINUM", division: "II", lp: 19, delta: 27, forme: [true, true, true, false, false] },
+    { position: 4, nom: "Sieste Tactique", tier: "IRON", division: "IV", lp: 4, delta: -14, forme: [false, false, false, true, false] },
+    { position: 5, nom: "Fromage Qui Pue", tier: "GOLD", division: "IV", lp: 71, delta: 22, forme: [false, true, true, true, false] },
   ],
 ];
 
