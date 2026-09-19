@@ -40,11 +40,47 @@ export function PageHeader({
   const longestStreak = [...snapshot.entries]
     .filter((e) => e.streak.count > 0)
     .sort((a, b) => b.streak.count - a.streak.count)[0];
-  /* Il faut de quoi remplir les trois cases, et deux joueurs distincts pour
-     que « meilleure » et « pire » ne désignent pas la même personne. */
-  const hasFacts = Boolean(
-    best && worst && longestStreak && best !== worst,
-  );
+
+  /* Chaque fait doit être vrai pour être affiché. Une « plus forte chute » à
+     ±0 LP désignait quelqu'un qui n'avait pas joué, simplement parce qu'il
+     fallait bien remplir la case ; et `best` et `worst` tombaient sur la même
+     personne dès qu'un seul joueur avait une variation mesurée. */
+  const faits: Array<{
+    label: string;
+    name: string;
+    value: string;
+    tone: "up" | "down";
+  }> = [];
+  if (best && (best.session.lp ?? 0) > 0) {
+    faits.push({
+      label: "Meilleure progression",
+      name: best.player.gameName,
+      value: `${signed(best.session.lp ?? 0)} LP`,
+      tone: "up",
+    });
+  }
+  if (worst && worst !== best && (worst.session.lp ?? 0) < 0) {
+    faits.push({
+      label: "Plus forte chute",
+      name: worst.player.gameName,
+      value: `${signed(worst.session.lp ?? 0)} LP`,
+      tone: "down",
+    });
+  }
+  if (longestStreak) {
+    faits.push({
+      label: "Plus longue série",
+      name: longestStreak.player.gameName,
+      value:
+        longestStreak.streak.type === "win"
+          ? `${longestStreak.streak.count} victoires`
+          : `${longestStreak.streak.count} défaites`,
+      tone: longestStreak.streak.type === "win" ? "up" : "down",
+    });
+  }
+  /* Les classes sont choisies dans un tableau littéral : Tailwind ne voit pas
+     les noms construits à la volée et ne générerait pas la règle. */
+  const colonnesFaits = ["", "", "sm:grid-cols-2", "sm:grid-cols-3"][faits.length] ?? "";
 
   return (
     <section className="pt-10 md:pt-14">
@@ -145,31 +181,22 @@ export function PageHeader({
           )}
         </div>
 
-        {/* — Bandeau de faits du jour : trois faits, séparés par des filets — */}
-        {hasFacts && (
-        <div className="mt-10 grid gap-px overflow-hidden rounded-md border border-hair bg-hair sm:grid-cols-3">
-          <Fact
-            label="Meilleure progression"
-            name={best.player.gameName}
-            value={`${signed(best.session.lp ?? 0)} LP`}
-            tone="up"
-          />
-          <Fact
-            label="Plus forte chute"
-            name={worst.player.gameName}
-            value={`${signed(worst.session.lp ?? 0)} LP`}
-            tone="down"
-          />
-          <Fact
-            label="Plus longue série"
-            name={longestStreak.player.gameName}
-            value={
-              longestStreak.streak.type === "win"
-                ? `${longestStreak.streak.count} victoires`
-                : `${longestStreak.streak.count} défaites`
-            }
-            tone={longestStreak.streak.type === "win" ? "up" : "down"}
-          />
+        {/* — Bandeau de faits du jour, séparés par des filets. Le nombre de
+             colonnes suit le nombre de faits réellement vrais : une case vide
+             se verrait, le filet de séparation la dessinant. — */}
+        {faits.length > 0 && (
+        <div
+          className={`mt-10 grid gap-px overflow-hidden rounded-md border border-hair bg-hair ${colonnesFaits}`}
+        >
+          {faits.map((f) => (
+            <Fact
+              key={f.label}
+              label={f.label}
+              name={f.name}
+              value={f.value}
+              tone={f.tone}
+            />
+          ))}
         </div>
         )}
       </div>

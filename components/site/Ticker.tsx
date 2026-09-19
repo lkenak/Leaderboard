@@ -11,8 +11,13 @@ import type { RankingEntry } from "@/lib/types";
  * le tableau —, donc `aria-hidden` et pas de rôle marquee.
  */
 export function Ticker({ entries }: { entries: RankingEntry[] }) {
+  /* Les totaux incomplets sont écartés, pas seulement les inconnus. Ce bandeau
+     n'a pas d'infobulle pour nuancer : « ±0 LP » à côté de « 6V·8D » s'y lit
+     comme un fait, alors que c'est la somme des seules parties dont la
+     variation a pu être mesurée. Une ligne de moins vaut mieux qu'une ligne
+     fausse. */
   const movers = entries
-    .filter((e) => e.session.games > 0 && e.session.lp !== null)
+    .filter((e) => e.session.games > 0 && e.session.lp !== null && !e.session.partial)
     .sort((a, b) => Math.abs(b.session.lp ?? 0) - Math.abs(a.session.lp ?? 0))
     .slice(0, 14);
 
