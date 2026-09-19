@@ -129,7 +129,7 @@ export function SessionCell({ entry }: { entry: RankingEntry }) {
       className="flex flex-col items-center gap-1"
       title={
         entry.session.partial
-          ? "Fenêtre plus courte que 24 h : le suivi vient de commencer"
+          ? "Total incomplet : la variation de certaines parties de la fenêtre n'a pas pu être mesurée"
           : undefined
       }
     >

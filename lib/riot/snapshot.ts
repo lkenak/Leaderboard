@@ -32,9 +32,6 @@ import type {
 /** Fenêtre d'agrégation : KDA, champions favoris, forme. */
 const WINDOW = 26;
 const DAY_MS = 24 * 3600_000;
-/** En dessous de cette profondeur d'historique, la fenêtre 24 h est annoncée
- *  comme partielle. */
-const NEAR_DAY_MS = 20 * 3600_000;
 
 export interface SnapshotMeta {
   source: "riot";
@@ -67,6 +64,30 @@ function lpCurve(samples: LpSample[]): number[] {
   return out.slice(-40);
 }
 
+/**
+ * Bilan des dernières 24 h : variation de LP, et victoires/défaites.
+ *
+ * L'exigence est que **les deux chiffres décrivent les mêmes parties**. Ce
+ * n'était pas le cas : la variation se mesurait entre le dernier relevé
+ * antérieur à la fenêtre et le relevé courant, comme si ce relevé datait
+ * précisément d'il y a 24 h. Rien ne le garantit — la rétention ne conserve
+ * que quarante relevés, et le plus récent d'avant la fenêtre peut la précéder
+ * de plusieurs heures. Observé en production : une ancre 18,8 h trop tôt,
+ * donnant « +80 LP » à côté de « 1V·0D » parce que les trois autres parties
+ * du joueur tombaient dans l'intervalle entre l'ancre et la fenêtre.
+ *
+ * L'ancre reste la meilleure mesure quand elle est utilisable, parce qu'elle
+ * reste exacte même pour les parties dont le delta individuel est inconnu.
+ * Elle ne l'est qu'à une condition, qui se vérifie directement : **aucune
+ * partie ne doit s'être jouée entre l'ancre et l'ouverture de la fenêtre**.
+ * Alors tout le mouvement de LP depuis l'ancre est imputable aux parties de
+ * la fenêtre, quel que soit l'âge de l'ancre.
+ *
+ * À défaut, on additionne les variations connues des parties de la fenêtre.
+ * Ce total ne peut pas déborder de la période, mais il est incomplet tant que
+ * toutes les parties n'ont pas de delta — d'où `partial`, que la cellule
+ * traduit par une infobulle.
+ */
 function sessionOf(
   samples: LpSample[],
   games: GameRecord[],
@@ -76,46 +97,47 @@ function sessionOf(
   const dayGames = games.filter((g) => g.endedAt >= dayAgo);
   const wins = dayGames.filter((g) => g.win).length;
   const losses = dayGames.length - wins;
+  const compte = dayGames.length;
   const latest = samples.at(-1);
 
-  if (!latest) {
-    return { lp: null, wins, losses, games: dayGames.length, partial: true };
-  }
+  if (!latest) return { lp: null, wins, losses, games: compte, partial: true };
 
-  // Cas nominal : un relevé antérieur à la fenêtre sert d'ancre, la variation
-  // est alors exacte, y compris pour les parties dont le delta est inconnu.
+  // Aucune partie dans la fenêtre : la variation est nulle et elle est sûre.
+  // Passer par l'ancre ici ferait remonter le mouvement de LP d'une soirée
+  // antérieure sur une journée où le joueur n'a pas joué.
+  if (compte === 0) return { lp: 0, wins: 0, losses: 0, games: 0, partial: false };
+
   let anchor: LpSample | undefined;
   for (const sample of samples) {
     if (sample.ts <= dayAgo) anchor = sample;
     else break;
   }
-  if (anchor) {
+
+  const ancre = anchor;
+  const partieAvantLaFenetre =
+    ancre !== undefined &&
+    games.some((g) => g.endedAt >= ancre.ts && g.endedAt < dayAgo);
+
+  if (ancre && !partieAvantLaFenetre) {
     return {
-      lp: latest.absoluteLp - anchor.absoluteLp,
+      lp: latest.absoluteLp - ancre.absoluteLp,
       wins,
       losses,
-      games: dayGames.length,
+      games: compte,
       partial: false,
     };
   }
 
-  // Suivi trop jeune : on additionne les deltas connus, sinon on mesure depuis
-  // le premier relevé, et on le signale.
-  const known = dayGames.filter((g) => g.lpDelta !== null);
-  const oldest = samples[0];
-  const lp =
-    known.length > 0
-      ? known.reduce((a, g) => a + (g.lpDelta ?? 0), 0)
-      : oldest && oldest.ts !== latest.ts
-        ? latest.absoluteLp - oldest.absoluteLp
-        : null;
-
+  const connues = dayGames.filter((g) => g.lpDelta !== null);
   return {
-    lp,
+    // Pas de repli sur « depuis le premier relevé » : c'était la même erreur de
+    // période que celle qu'on vient de corriger, en pire. Sans aucun delta
+    // connu, la variation est inconnue, et `—` le dit honnêtement.
+    lp: connues.length > 0 ? connues.reduce((a, g) => a + (g.lpDelta ?? 0), 0) : null,
     wins,
     losses,
-    games: dayGames.length,
-    partial: !oldest || now - oldest.ts < NEAR_DAY_MS,
+    games: compte,
+    partial: connues.length < compte,
   };
 }
 

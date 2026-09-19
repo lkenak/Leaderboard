@@ -85,10 +85,10 @@ export default async function Home() {
           </dl>
 
           <div className="mt-12 grid gap-8 border-t border-hair pt-12 sm:grid-cols-3">
-            <Feature title="Une échelle unique">
-              Les LP sont ramenés de Fer&nbsp;IV à Challenger sur une seule
-              échelle : deux joueurs de paliers différents se comparent
-              vraiment.
+            <Feature title="Tout le monde sur la même grille">
+              Chacun garde son rang — Or&nbsp;II, Diamant&nbsp;IV — et le
+              classement les range quand même les uns par rapport aux autres,
+              du dernier au premier.
             </Feature>
             <Feature title="Dans ton Discord">
               Le bot affiche le classement, organise les parties

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { emblemSrc, rankLabel } from "@/lib/lol";
-import { agoLabel, signed, thousands } from "@/lib/format";
+import { agoLabel, signed } from "@/lib/format";
 import { Delta } from "@/components/ui/Delta";
 import { FormStrip } from "@/components/ui/FormStrip";
 import { Crest } from "@/components/ui/Crest";
@@ -26,20 +26,25 @@ export function PageHeader({
      « rien à montrer pour l'instant » d'une page cassée. */
   const leader = snapshot.entries.at(0);
   const dayGames = snapshot.entries.reduce((a, e) => a + e.session.games, 0);
-  const lpTraded = snapshot.entries.reduce(
-    (a, e) => a + Math.abs(e.session.lp ?? 0),
-    0,
-  );
+  /* Seuls les joueurs dont la variation est *mesurée* peuvent figurer au
+     palmarès. Rabattre une variation inconnue sur 0 la faisait concourir comme
+     si elle valait zéro, et un joueur sans données pouvait se retrouver
+     désigné « meilleure progression » à +0 LP. */
+  const mesures = snapshot.entries.filter((e) => e.session.lp !== null);
   const byDay = (dir: 1 | -1) =>
-    [...snapshot.entries].sort(
+    [...mesures].sort(
       (a, b) => ((b.session.lp ?? 0) - (a.session.lp ?? 0)) * dir,
     )[0];
   const best = byDay(1);
   const worst = byDay(-1);
-  const longestStreak = [...snapshot.entries].sort(
-    (a, b) => b.streak.count - a.streak.count,
-  )[0];
-  const hasFacts = Boolean(best && worst && longestStreak);
+  const longestStreak = [...snapshot.entries]
+    .filter((e) => e.streak.count > 0)
+    .sort((a, b) => b.streak.count - a.streak.count)[0];
+  /* Il faut de quoi remplir les trois cases, et deux joueurs distincts pour
+     que « meilleure » et « pire » ne désignent pas la même personne. */
+  const hasFacts = Boolean(
+    best && worst && longestStreak && best !== worst,
+  );
 
   return (
     <section className="pt-10 md:pt-14">
@@ -55,16 +60,14 @@ export function PageHeader({
               <span className="text-acid">.</span>
             </h1>
             <p className="mt-4 max-w-lg text-[0.9375rem] leading-relaxed text-ink-2">
-              Le classement se recalcule à chaque partie terminée. Les LP sont
-              ramenés à une échelle unique de Fer&nbsp;IV à Challenger, ce qui
-              permet de comparer deux joueurs qui ne sont pas dans le même
-              palier.
+              Rang, LP, forme et bilan des dernières 24 h de chaque membre,
+              relevés automatiquement. Le classement se recalcule à chaque
+              partie terminée.
             </p>
 
             <dl className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
               <Meta label="Joueurs" value={String(snapshot.entries.length)} />
               <Meta label="Parties 24 h" value={String(dayGames)} />
-              <Meta label="LP échangés" value={thousands(lpTraded)} />
               <Meta
                 label="Relevé"
                 value={agoLabel(snapshot.updatedAt, now)}
