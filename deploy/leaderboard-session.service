@@ -1,0 +1,14 @@
+# /etc/systemd/system/leaderboard-session.service
+[Unit]
+Description=Relevé rapproché des joueurs en session
+After=leaderboard.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/leaderboard.env
+# --max-time bien plus court que le relevé global : cette voie ne vise qu'une
+# poignée de comptes, et un appel qui déborderait sur le tir suivant ne
+# servirait à rien — le verrou de portée lui ferait rendre la main aussitôt.
+ExecStart=/usr/bin/curl --fail --silent --show-error --max-time 120 \
+  -X POST -H "Authorization: Bearer ${REFRESH_SECRET}" \
+  "http://127.0.0.1:3000/api/refresh?portee=session"

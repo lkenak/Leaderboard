@@ -1,8 +1,13 @@
 # /etc/systemd/system/leaderboard-refresh.timer
 #
-# Facultatif. Le site déclenche déjà un relevé à la visite quand le dernier
-# dépasse REFRESH_INTERVAL_MS ; ce minuteur ne sert qu'à relever même les jours
-# où personne ne consulte le site.
+# Obligatoire, et non plus facultatif comme l'annonçait ce fichier : les pages
+# ne déclenchent plus de relevé à la visite (elles ont un bouton), et un
+# compte rendu d'après-game ne part que si un relevé a vu la partie. Sans ce
+# minuteur, un ladder dont personne ne consulte le site n'annonce rien.
+#
+# Il fait le fond : tous les comptes suivis, toutes les 5 min. Les joueurs en
+# train de jouer sont pris en charge bien plus souvent par
+# `leaderboard-session.timer`, qui doit être activé lui aussi.
 #
 #   sudo systemctl enable --now leaderboard-refresh.timer
 #   systemctl list-timers leaderboard-refresh

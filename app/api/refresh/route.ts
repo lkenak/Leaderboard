@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
-import { hasKey, isRunning, runSync } from "@/lib/riot/refresh";
+import { hasKey, isRunning, runSync, syncSession } from "@/lib/riot/refresh";
 
 /**
  * Déclenche un relevé. Deux usages :
  *  - un cron (Vercel Cron, systemd, cron-job.org) avec l'en-tête
  *    `Authorization: Bearer $REFRESH_SECRET` ;
  *  - le bouton « Relever maintenant » des réglages d'un ladder (`/l/[slug]/settings`).
+ *
+ * `?portee=session` bascule sur le relevé rapproché des seuls joueurs en train
+ * de jouer — c'est le minuteur à 90 s qui l'appelle, pas le bouton. Il rend
+ * `{ ignoré: … }` quand il n'y a personne en session, ce qui est le cas le
+ * plus fréquent et ne doit pas ressembler à une erreur dans `journalctl`.
  *
  * En développement local, le secret est facultatif — l'exiger ne protégerait
  * rien sur une machine à laquelle on a déjà accès, et l'oubli est la première
@@ -40,6 +45,13 @@ async function handle(request: Request) {
       { status: 503 },
     );
   }
+  if (new URL(request.url).searchParams.get("portee") === "session") {
+    const report = await syncSession();
+    return NextResponse.json(
+      report ?? { ignoré: "aucun joueur en session, ou relevé déjà en cours" },
+    );
+  }
+
   const alreadyRunning = isRunning();
   const report = await runSync();
   return NextResponse.json({ alreadyRunning, ...report });

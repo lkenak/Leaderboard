@@ -1,0 +1,26 @@
+# /etc/systemd/system/leaderboard-session.timer
+#
+# Voie rapide : ne vise que les joueurs en train de jouer — en partie, ou
+# sortant d'une partie de moins de 30 min. Hors session la portée est vide et
+# l'appel ne coûte qu'une requête SQL locale, d'où une cadence qui serait
+# déraisonnable sur le plateau entier.
+#
+# Ce minuteur n'est pas un confort. Sans lui, `fillLpDeltas` ne peut pas
+# chiffrer une partie quand une autre s'est glissée entre deux relevés, et une
+# carte sur quatre affiche « — » au lieu d'une variation de LP.
+#
+#   sudo systemctl enable --now leaderboard-session.timer
+#   systemctl list-timers leaderboard-session
+#
+[Unit]
+Description=Relevé rapproché des joueurs en session
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=90s
+# Pas de RandomizedDelaySec ici, contrairement au relevé global : tout
+# l'intérêt de cette voie est la régularité de l'intervalle entre deux relevés.
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target

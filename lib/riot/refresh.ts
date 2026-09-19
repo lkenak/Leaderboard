@@ -11,10 +11,13 @@ import { MissingKeyError } from "./client";
 /**
  * Déclenchement des relevés, et les garde-fous qui vont avec.
  *
- * Deux façons de relever, pour deux besoins qui n'ont rien à voir :
+ * Trois façons de relever, pour trois besoins qui n'ont rien à voir :
  *
  *  - **le relevé global**, périodique, qui tient à jour tous les comptes
  *    suivis. Il est lent par nature et personne ne l'attend ;
+ *  - **le relevé de session**, rapproché, qui ne vise que les joueurs en
+ *    train de jouer. Personne ne l'attend non plus, mais c'est lui qui
+ *    détermine la qualité de ce qu'on affiche (voir plus bas) ;
  *  - **le relevé ciblé**, déclenché par quelqu'un qui regarde quelque chose
  *    de précis — un bouton sur un classement, l'ajout d'un compte, une
  *    commande du bot. Quelques appels, et on attend le résultat.
@@ -36,6 +39,8 @@ function cle(scope: SyncScope): string {
       return `ladder:${scope.ladderId}`;
     case "utilisateur":
       return `utilisateur:${scope.userId}`;
+    case "en-session":
+      return "en-session";
     default:
       return "tout";
   }
@@ -75,6 +80,12 @@ export function hasKey(): boolean {
 export function refreshIntervalMs(): number {
   const raw = Number(process.env.REFRESH_INTERVAL_MS);
   return Number.isFinite(raw) && raw >= 60_000 ? raw : 5 * 60_000;
+}
+
+/** Intervalle du relevé de session, réglable par `SESSION_INTERVAL_MS`. */
+export function sessionIntervalMs(): number {
+  const raw = Number(process.env.SESSION_INTERVAL_MS);
+  return Number.isFinite(raw) && raw >= 30_000 ? raw : 90_000;
 }
 
 /**
@@ -179,6 +190,65 @@ export async function syncIfStale(): Promise<void> {
     } catch {
       // best-effort
     }
+  }
+}
+
+/**
+ * Relevé rapproché des seuls joueurs en session.
+ *
+ * Ce n'est pas d'abord une optimisation de latence, c'est une question
+ * d'exactitude. `fillLpDeltas` n'attribue une variation de LP à une partie que
+ * si le relevé qui la précède et celui qui la suit ne sont séparés **que par
+ * elle** ; deux parties glissées entre deux relevés ne peuvent plus être
+ * départagées, et leur variation reste nulle à jamais. À 5 minutes fixes, une
+ * partie sur quatre passait entre les mailles et s'affichait « — ».
+ *
+ * Sonder toutes les 90 s les seuls joueurs en session garantit un relevé entre
+ * deux parties consécutives : chaque partie se retrouve encadrée, donc chiffrée.
+ * Le compte rendu d'après-game arrive au passage sous la minute au lieu de
+ * trois et demie, mais c'est le bénéfice secondaire.
+ *
+ * **Le coût reste borné par construction**, sans plafond arbitraire à régler :
+ * hors session la portée est vide et aucun appel n'est émis ; en session le
+ * verrou de portée empêche deux relevés de se chevaucher, donc un plateau qui
+ * mettrait plus de 90 s à être relevé se relève simplement moins souvent —
+ * il ne s'empile pas. Le limiteur de `lib/riot/client.ts` fait le reste.
+ *
+ * Renvoie `null` quand il n'y avait personne à relever : l'appelant distingue
+ * « rien à faire » de « fait », ce que le silence ne permettrait pas.
+ */
+export async function syncSession(): Promise<SyncReport | null> {
+  if (!hasKey()) return null;
+
+  const scope: SyncScope = { kind: "en-session" };
+  const k = cle(scope);
+  // Un relevé de session déjà en vol : ne pas attendre le sien pour en
+  // journaliser un doublon. Le minuteur repassera.
+  if (enCours.has(k)) return null;
+
+  const dernier = dernierReleve.get(k);
+  if (dernier && Date.now() - dernier < sessionIntervalMs()) return null;
+
+  // Requête locale, aucun appel réseau : c'est elle qui rend la voie rapide
+  // gratuite la plupart du temps.
+  if (listPlayersToSync(scope).length === 0) return null;
+
+  try {
+    const report = await runSync(scope);
+    console.log(
+      `[riot] session : ${report.accounts} joueur(s), ${report.calls} appels, ` +
+        `${report.newSamples} relevé(s), ${report.newGames} partie(s), ` +
+        `${report.queued} en file, ${report.inGame} en jeu, ${report.errors.length} erreur(s) ` +
+        `en ${Math.round(report.durationMs / 1000)} s`,
+    );
+    return report;
+  } catch (err) {
+    if (err instanceof MissingKeyError) return null;
+    // Avalé comme dans `syncIfStale` : l'appelant est une tâche de fond, et le
+    // relevé global reste le filet. Pas d'écriture dans `sync_meta`, qui date
+    // le relevé **global** et lui seul.
+    console.error("[riot] relevé de session échoué :", err);
+    return null;
   }
 }
 

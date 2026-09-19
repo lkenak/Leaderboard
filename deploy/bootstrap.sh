@@ -134,6 +134,10 @@ install -m 644 "$SRV/repo/deploy/leaderboard.service" /etc/systemd/system/
 install -m 644 "$SRV/repo/deploy/leaderboard-bot.service" /etc/systemd/system/
 install -m 644 "$SRV/repo/deploy/leaderboard-refresh.service" /etc/systemd/system/
 install -m 644 "$SRV/repo/deploy/leaderboard-refresh.timer" /etc/systemd/system/
+# Voie rapide sur les joueurs en session : c'est elle qui permet de chiffrer la
+# variation de LP de chaque partie (voir l'en-tête du minuteur).
+install -m 644 "$SRV/repo/deploy/leaderboard-session.service" /etc/systemd/system/
+install -m 644 "$SRV/repo/deploy/leaderboard-session.timer" /etc/systemd/system/
 systemctl daemon-reload
 ok "unités installées"
 

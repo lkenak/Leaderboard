@@ -142,12 +142,13 @@ sudo chmod 600 /etc/leaderboard.env && sudo chown root:root /etc/leaderboard.env
 sudo nano /etc/leaderboard.env     # clé Riot, ADMIN_PASSWORD, REFRESH_SECRET
 
 sudo cp /srv/leaderboard/repo/deploy/leaderboard*.service /etc/systemd/system/
-sudo cp /srv/leaderboard/repo/deploy/leaderboard-refresh.timer /etc/systemd/system/
+sudo cp /srv/leaderboard/repo/deploy/leaderboard-*.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 
 sudo -u leaderboard /srv/leaderboard/repo/deploy/deploy.sh
 sudo systemctl enable --now leaderboard
-sudo systemctl enable --now leaderboard-refresh.timer   # facultatif
+sudo systemctl enable --now leaderboard-refresh.timer   # fond, 5 min
+sudo systemctl enable --now leaderboard-session.timer   # joueurs en partie, 90 s
 ```
 
 Générer les deux secrets :

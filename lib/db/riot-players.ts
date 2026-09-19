@@ -62,14 +62,35 @@ export interface UnresolvedIdentity {
  */
 export type SyncScope =
   | { kind: "tout" }
+  | { kind: "en-session" }
   | { kind: "ladder"; ladderId: string }
   | { kind: "utilisateur"; userId: string };
+
+/**
+ * Fenêtre pendant laquelle un joueur reste « en session » après sa dernière
+ * partie terminée.
+ *
+ * Viser les seuls joueurs présents dans `live_games` ne suffirait pas : le
+ * relevé qui constate la fin d'une partie vide `live_games` dans la foulée,
+ * donc le joueur sortirait de la portée rapide **au moment précis** où il
+ * enchaîne la suivante — et on ne le retrouverait qu'au prochain relevé
+ * global. Une demi-heure couvre confortablement l'intervalle entre deux
+ * parties classées (fin de partie, file, sélection des champions, chargement)
+ * sans garder personne en sondage rapproché après sa soirée.
+ */
+export const FENETRE_SESSION_MS = 30 * 60_000;
 
 export function listUnresolvedIdentities(
   scope: SyncScope = { kind: "tout" },
 ): UnresolvedIdentity[] {
   const db = getDb();
   let rows: Array<{ region: string; game_name: string; tag_line: string }>;
+
+  // Un relevé de session ne s'occupe que de comptes déjà résolus : il court
+  // derrière des parties en cours, pas derrière des Riot ID fraîchement
+  // déclarés. Les résoudre ici ferait payer à la voie rapide le coût d'un
+  // travail qui n'a aucune raison d'être urgent.
+  if (scope.kind === "en-session") return [];
 
   if (scope.kind === "ladder") {
     rows = db
@@ -156,7 +177,22 @@ export function listPlayersToSync(scope: SyncScope = { kind: "tout" }): RiotPlay
   const db = getDb();
   let rows: PlayerRow[];
 
-  if (scope.kind === "ladder") {
+  if (scope.kind === "en-session") {
+    // Suivi **et** en train de jouer : en partie à l'instant, ou sortant d'une
+    // partie assez récente pour être encore sur une série. La condition de
+    // suivi est la même que pour la portée globale — un compte que plus aucun
+    // ladder ni aucune déclaration ne référence ne doit pas être interrogé,
+    // même s'il traîne une partie récente en base.
+    rows = db
+      .prepare(
+        `SELECT * FROM riot_players rp WHERE
+           (EXISTS (SELECT 1 FROM ladder_members lm WHERE lm.puuid = rp.puuid)
+            OR EXISTS (SELECT 1 FROM user_riot_accounts ura WHERE ura.puuid = rp.puuid))
+           AND (EXISTS (SELECT 1 FROM live_games lg WHERE lg.puuid = rp.puuid)
+                OR EXISTS (SELECT 1 FROM games g WHERE g.puuid = rp.puuid AND g.ended_at > ?))`,
+      )
+      .all(Date.now() - FENETRE_SESSION_MS) as PlayerRow[];
+  } else if (scope.kind === "ladder") {
     rows = db
       .prepare(
         `SELECT * FROM riot_players rp WHERE EXISTS (
