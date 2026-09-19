@@ -14,7 +14,9 @@ import {
   listLinksForGuild,
   setDefaultLink,
   setReportChannel,
+  setReportMode,
   unlinkLadderFromGuild,
+  type ReportMode,
 } from "@/lib/db/discord-guilds";
 import { getLadderBySlug, type LadderRecord } from "@/lib/db/ladders";
 import { consumeLinkCode } from "@/lib/db/link-codes";
@@ -116,6 +118,24 @@ export const data = new SlashCommandBuilder()
           .setName("salon")
           .setDescription("Laisser vide pour couper les envois.")
           .addChannelTypes(ChannelType.GuildText),
+      )
+      .addStringOption((o) =>
+        o.setName("slug").setDescription("Le ladder concerné.").setAutocomplete(true),
+      ),
+  )
+  .addSubcommand((c) =>
+    c
+      .setName("annonces")
+      .setDescription("À quel rythme annoncer les parties dans le salon.")
+      .addStringOption((o) =>
+        o
+          .setName("mode")
+          .setDescription("Une carte par partie, ou une seule par soirée.")
+          .setRequired(true)
+          .addChoices(
+            { name: "Chaque partie", value: "chaque-partie" },
+            { name: "Résumé de soirée", value: "resume-soiree" },
+          ),
       )
       .addStringOption((o) =>
         o.setName("slug").setDescription("Le ladder concerné.").setAutocomplete(true),
@@ -317,7 +337,8 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
       `**${ladder.name}** est relié à ce serveur.\n` +
         (cree.isDefault ? "C'est le ladder par défaut de `/classement`.\n" : "") +
         (salonId
-          ? `Les comptes rendus de partie iront dans <#${salonId}> (à partir du lot suivant).\n`
+          ? `Les comptes rendus iront dans <#${salonId}>, une carte par partie. ` +
+            "`/ladder annonces` pour n'en recevoir qu'une par soirée.\n"
           : "Aucun salon de comptes rendus pour l'instant — `/ladder salon` quand tu voudras.\n") +
         `Essaie \`/classement\`.`,
     );
@@ -388,10 +409,47 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
     setReportChannel(interaction.guildId, cible.ladder.id, salon.id);
     return repondre(
-      `Les comptes rendus de **${cible.ladder.name}** iront dans <#${salon.id}> ` +
-        "(dès que le lot « compte rendu d'après-game » sera en place).",
+      `Les comptes rendus de **${cible.ladder.name}** iront dans <#${salon.id}> — ` +
+        `${libelleMode(cible.reportMode)}. ` +
+        "`/ladder annonces` pour changer de rythme.",
     );
   }
+
+  if (sous === "annonces") {
+    const liens = listLinksForGuild(interaction.guildId);
+    if (liens.length === 0) return repondre("Aucun ladder n'est relié à ce serveur.");
+
+    const cible = slugDemande
+      ? liens.find((l) => l.ladder.slug === slugDemande)
+      : (liens.find((l) => l.isDefault) ?? (liens.length === 1 ? liens[0] : undefined));
+    if (!cible) {
+      return repondre("Ce serveur suit plusieurs ladders : précise lequel avec l'option `slug`.");
+    }
+
+    const mode = interaction.options.getString("mode", true) as ReportMode;
+    setReportMode(interaction.guildId, cible.ladder.id, mode);
+
+    if (!cible.reportChannelId) {
+      return repondre(
+        `**${cible.ladder.name}** : ${libelleMode(mode)}. ` +
+          "Reste à choisir où — `/ladder salon`, sans quoi rien ne sera envoyé.",
+      );
+    }
+    return repondre(
+      `**${cible.ladder.name}** : ${libelleMode(mode)} dans <#${cible.reportChannelId}>.` +
+        (mode === "resume-soiree"
+          ? "\nLe résumé part quand le ladder arrête de jouer, environ 25 minutes " +
+            "après la dernière partie. Ce qui a été joué avant maintenant n'y figurera pas."
+          : ""),
+    );
+  }
+}
+
+/** Le même libellé partout — dans la confirmation comme dans `/ladder etat`. */
+function libelleMode(mode: ReportMode): string {
+  return mode === "resume-soiree"
+    ? "une carte par soirée"
+    : "une carte par partie";
 }
 
 /* ── /ladder etat ─────────────────────────────────────────────────────────── */
@@ -421,7 +479,10 @@ async function etat(interaction: ChatInputCommandInteraction, publicUrl: string)
     morceaux.push(`\n   ${publicUrl}/l/${l.ladder.slug}`);
     morceaux.push(
       l.reportChannelId
-        ? `\n   Comptes rendus : <#${l.reportChannelId}>`
+        ? `\n   Comptes rendus : <#${l.reportChannelId}> · ${libelleMode(l.reportMode)}` +
+          (l.reportMode === "resume-soiree" && l.lastDigestAt
+            ? `\n   Dernier résumé jusqu'au ${shortDate(l.lastDigestAt)}`
+            : "")
         : `\n   Comptes rendus : coupés${l.reportError ? ` — ${l.reportError}` : ""}`,
     );
     morceaux.push(`\n   Relié le ${shortDate(l.createdAt)}`);

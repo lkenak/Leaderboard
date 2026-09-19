@@ -306,6 +306,66 @@ export function gameAltText(model: GameCardModel): string {
   );
 }
 
+/* ── Résumé de soirée ─────────────────────────────────────────────────────── */
+
+export interface SoireeJoueurModel {
+  name: string;
+  championIcon: string;
+  championName: string;
+  wins: number;
+  losses: number;
+  /** Somme des variations connues. `null` si aucune ne l'est. */
+  lpNet: number | null;
+  /** Au moins une partie de la soirée n'a pas de variation connue. */
+  partiel: boolean;
+  tier: Tier;
+  division: string | null;
+  rankShort: string;
+  leaguePoints: number;
+  position: number | null;
+  positionDelta: number | null;
+}
+
+export interface SoireeCardModel {
+  ladderName: string;
+  debut: number;
+  fin: number;
+  /** Parties distinctes, une partie jouée à trois du ladder comptant pour une. */
+  parties: number;
+  url: string | null;
+  /** Meilleure progression d'abord — c'est le classement de la soirée. */
+  joueurs: SoireeJoueurModel[];
+}
+
+export function soireeAltText(model: SoireeCardModel): string {
+  const lignes = model.joueurs.map((j) =>
+    [
+      j.name,
+      `${j.wins}V ${j.losses}D`,
+      `${deltaLabel(j.lpNet, " LP")}${j.partiel ? " (partiel)" : ""}`,
+      `${j.rankShort} ${j.leaguePoints} LP`,
+    ].join(", "),
+  );
+  return (
+    `Résumé de ${model.ladderName}, ${model.parties} partie(s) entre ` +
+    `${clockTime(model.debut)} et ${clockTime(model.fin)}. ${lignes.join(". ")}.`
+  );
+}
+
+/**
+ * Le texte du message qui porte l'image.
+ *
+ * Contrairement au compte rendu d'une partie, un résumé mérite une ligne de
+ * texte : c'est elle qu'on retrouve en cherchant dans l'historique, et elle
+ * reste lisible quand quelqu'un a désactivé les images.
+ */
+export function soireeSummary(model: SoireeCardModel): string {
+  const tete = model.joueurs[0];
+  const debut = `**${model.ladderName}** — ${model.parties} partie(s), ${model.joueurs.length} joueur(s)`;
+  if (!tete || tete.lpNet === null || tete.lpNet <= 0) return `${debut}.`;
+  return `${debut}. Meilleure soirée : ${tete.name}, ${deltaLabel(tete.lpNet, " LP")}.`;
+}
+
 /* ── Textes qui accompagnent l'image ──────────────────────────────────────── */
 
 /** `+24`, `-17`, `—` quand la variation est inconnue. */

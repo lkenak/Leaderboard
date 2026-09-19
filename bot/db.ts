@@ -22,9 +22,11 @@ import { disableMigrations, getDb } from "@/lib/db/client";
  * La migration la plus récente dont ce code a besoin.
  *
  * À relever dans le même commit que chaque migration dont le bot dépend.
- * Aujourd'hui `0006` : la file des comptes rendus d'après-game.
+ * Aujourd'hui `0007` : le mode d'annonce, que `bot/rapports/file.ts` lit sur
+ * chaque liaison pour savoir s'il doit poster la partie ou attendre la fin de
+ * la soirée.
  */
-export const MIGRATION_MINIMALE = "0006_game_events.sql";
+export const MIGRATION_MINIMALE = "0007_report_mode.sql";
 
 export interface EtatSchema {
   appliquees: string[];

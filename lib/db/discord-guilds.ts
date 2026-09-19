@@ -9,12 +9,28 @@ import type { LadderRecord } from "./ladders";
  * deux exemplaires.
  */
 
+/**
+ * Débit des comptes rendus, par liaison.
+ *
+ *  - `chaque-partie` : une carte par partie classée, dès qu'elle est connue ;
+ *  - `resume-soiree` : une seule carte quand la série de parties s'arrête.
+ *
+ * Le silence complet n'est pas un mode : c'est `reportChannelId === null`,
+ * qui existait déjà et dit exactement ça.
+ */
+export type ReportMode = "chaque-partie" | "resume-soiree";
+
+export const REPORT_MODES: readonly ReportMode[] = ["chaque-partie", "resume-soiree"];
+
 export interface GuildLinkRecord {
   id: number;
   ladderId: string;
   guildId: string;
   reportChannelId: string | null;
   reportError: string | null;
+  reportMode: ReportMode;
+  /** Fin de la derniere partie deja couverte par un resume. */
+  lastDigestAt: number | null;
   isDefault: boolean;
   addedByUserId: string | null;
   createdAt: number;
@@ -31,6 +47,8 @@ interface LinkRow {
   guild_id: string;
   report_channel_id: string | null;
   report_error: string | null;
+  report_mode: string;
+  last_digest_at: number | null;
   is_default: number;
   added_by_user_id: string | null;
   created_at: number;
@@ -51,6 +69,12 @@ function fromRow(row: LinkRow): GuildLinkRecord {
     guildId: row.guild_id,
     reportChannelId: row.report_channel_id,
     reportError: row.report_error,
+    // Le CHECK de la migration garantit la valeur ; le repli couvre une base
+    // migrée à la main plutôt que de propager un mode inconnu jusqu'au bot.
+    reportMode: (REPORT_MODES as readonly string[]).includes(row.report_mode)
+      ? (row.report_mode as ReportMode)
+      : "chaque-partie",
+    lastDigestAt: row.last_digest_at,
     isDefault: row.is_default === 1,
     addedByUserId: row.added_by_user_id,
     createdAt: row.created_at,
@@ -254,6 +278,63 @@ export function setReportChannel(
     )
     .run(channelId, guildId, ladderId);
   return res.changes > 0;
+}
+
+/**
+ * Change le débit des comptes rendus d'une liaison.
+ *
+ * Le passage en résumé pose la borne à maintenant, dans la même écriture. Sans
+ * ça, le premier résumé embarquerait tout ce que la rétention garde encore —
+ * soit jusqu'à quarante parties par joueur, dont celles déjà annoncées une à
+ * une juste avant le basculement. Le mode et sa borne sont une seule décision,
+ * ils ne doivent pas pouvoir diverger.
+ */
+export function setReportMode(
+  guildId: string,
+  ladderId: string,
+  mode: ReportMode,
+): boolean {
+  const res = getDb()
+    .prepare(
+      `UPDATE ladder_discord_guilds
+          SET report_mode = ?,
+              last_digest_at = CASE WHEN ? = 'resume-soiree' THEN ? ELSE last_digest_at END
+        WHERE guild_id = ? AND ladder_id = ?`,
+    )
+    .run(mode, mode, Date.now(), guildId, ladderId);
+  return res.changes > 0;
+}
+
+/**
+ * Les liaisons en résumé de soirée qui ont un salon où poster.
+ *
+ * Le balayage des résumés part de là, et non de la file `game_events` : un
+ * résumé ne se déclenche pas sur un événement mais sur un **silence**, et
+ * aucune ligne n'arrive pour signaler qu'une soirée vient de se terminer.
+ */
+export function listDigestLinks(): GuildLinkWithLadder[] {
+  return getDb()
+    .prepare<[], JoinedRow>(
+      `${SELECT_JOINED}
+        WHERE g.report_mode = 'resume-soiree' AND g.report_channel_id IS NOT NULL
+        ORDER BY g.id`,
+    )
+    .all()
+    .map(joinedFromRow);
+}
+
+/**
+ * Avance la borne des résumés après un envoi réussi.
+ *
+ * Écrit **après** l'envoi, jamais avant : un échec doit laisser la soirée à
+ * couvrir, quitte à la reposter au balayage suivant. Le risque symétrique — un
+ * doublon si l'envoi passe et que l'écriture échoue — n'existe pas ici,
+ * better-sqlite3 étant synchrone et la ligne déjà verrouillée.
+ */
+export function markDigestSent(linkId: number, jusqua: number): void {
+  getDb()
+    .prepare("UPDATE ladder_discord_guilds SET last_digest_at = ? WHERE id = ?")
+    .run(jusqua, linkId);
 }
 
 /**

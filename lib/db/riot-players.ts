@@ -374,6 +374,37 @@ export function listGames(puuid: string, limit?: number): GameRecord[] {
   return rows.map(gameFromRow);
 }
 
+/**
+ * Ce qu'un ladder a joué depuis une date : combien, et quand ça s'est arrêté.
+ *
+ * Sert au résumé de soirée, qui a besoin de savoir si la série est finie
+ * **avant** de dessiner quoi que ce soit. Une seule requête, parce que ce test
+ * tourne toutes les 30 s pour chaque liaison concernée.
+ *
+ * `parties` compte les lignes, donc une partie jouée par trois membres du
+ * ladder en vaut trois ici. Le décompte affiché sur la carte est celui des
+ * `match_id` distincts, calculé au moment du rendu.
+ */
+export function ladderGameWindow(
+  ladderId: string,
+  depuis: number,
+): { parties: number; premiere: number | null; derniere: number | null } {
+  const row = getDb()
+    .prepare<[number, string], { n: number; premiere: number | null; derniere: number | null }>(
+      `SELECT COUNT(*) AS n, MIN(g.ended_at) AS premiere, MAX(g.ended_at) AS derniere
+         FROM games g
+        WHERE g.ended_at > ?
+          AND EXISTS (SELECT 1 FROM ladder_members lm
+                       WHERE lm.puuid = g.puuid AND lm.ladder_id = ?)`,
+    )
+    .get(depuis, ladderId);
+  return {
+    parties: row?.n ?? 0,
+    premiere: row?.premiere ?? null,
+    derniere: row?.derniere ?? null,
+  };
+}
+
 export function upsertGames(puuid: string, games: GameRecord[]): void {
   if (games.length === 0) return;
   const db = getDb();
