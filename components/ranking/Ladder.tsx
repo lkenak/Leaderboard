@@ -228,7 +228,7 @@ export function Ladder({
                       now={now}
                     />
                     {expanded === entry.player.puuid && (
-                      <RowDetail entry={entry} now={now} />
+                      <RowDetail entry={entry} now={now} ladderSlug={ladderSlug} />
                     )}
                   </div>
                 ))

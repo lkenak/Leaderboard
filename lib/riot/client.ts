@@ -190,14 +190,20 @@ export interface ActiveGameDto {
 export interface MatchDto {
   metadata: { matchId: string; participants: string[] };
   info: {
+    gameVersion: string;
     gameEndTimestamp?: number;
     gameStartTimestamp: number;
     gameDuration: number;
     queueId: number;
     participants: Array<{
+      participantId: number;
       puuid: string;
+      riotIdGameName?: string;
+      riotIdTagline?: string;
+      teamId: number;
       championName: string;
       championId: number;
+      champLevel: number;
       teamPosition: string;
       individualPosition: string;
       win: boolean;
@@ -207,8 +213,39 @@ export interface MatchDto {
       totalMinionsKilled: number;
       neutralMinionsKilled: number;
       visionScore: number;
+      goldEarned: number;
+      totalDamageDealtToChampions: number;
+      totalDamageTaken: number;
+      summoner1Id: number;
+      summoner2Id: number;
+      item0: number;
+      item1: number;
+      item2: number;
+      item3: number;
+      item4: number;
+      item5: number;
+      item6: number;
+      perks: {
+        statPerks: { offense: number; flex: number; defense: number };
+        styles: Array<{
+          description: string; // "primaryStyle" | "subStyle"
+          style: number;
+          selections: Array<{ perk: number }>;
+        }>;
+      };
       gameEndedInEarlySurrender: boolean;
       challenges?: Record<string, number>;
+    }>;
+  };
+}
+
+/** Un point de timeline (~60 s) par joueur. */
+export interface MatchTimelineDto {
+  info: {
+    frameInterval: number;
+    frames: Array<{
+      timestamp: number;
+      participantFrames: Record<string, { participantId: number; totalGold: number }>;
     }>;
   };
 }
@@ -257,6 +294,16 @@ export function rankedMatchIds(region: Region, puuid: string, count: number) {
 export function match(region: Region, matchId: string) {
   return get<MatchDto>(
     `${clusterHost(region)}/lol/match/v5/matches/${matchId}`,
+    { allow404: true },
+  );
+}
+
+/** Or de chaque joueur minute par minute — sert à la courbe d'écart aux
+ *  golds du détail de partie (lib/riot/match-details.ts). Un appel de plus,
+ *  demandé seulement pour les 5 parties les plus récentes d'un compte. */
+export function matchTimeline(region: Region, matchId: string) {
+  return get<MatchTimelineDto>(
+    `${clusterHost(region)}/lol/match/v5/matches/${matchId}/timeline`,
     { allow404: true },
   );
 }

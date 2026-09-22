@@ -6,7 +6,7 @@ import {
 import { absoluteLp } from "@/lib/lol";
 import * as players from "@/lib/db/riot-players";
 import type { GameRecord, LiveGame, Role, Tier } from "@/lib/types";
-import { DIVISIONS, ROLES, TIERS } from "@/lib/types";
+import { DIVISIONS, TIERS } from "@/lib/types";
 import {
   MissingKeyError,
   accountByRiotId,
@@ -19,6 +19,9 @@ import {
   type LeagueEntryDto,
   type MatchDto,
 } from "./client";
+import { durationSeconds, toRole } from "./match-mapping";
+import { ensureMatchDetail } from "./match-details";
+import { pruneMatchDetails } from "@/lib/db/match-details";
 
 /**
  * Synchronisation des comptes Riot d'une **portée** : tout le monde, un seul
@@ -51,6 +54,9 @@ const RANKED_SOLO_QUEUE_ID = 420;
 const HEARTBEAT_MS = 30 * 60_000;
 const MATCH_PAGE = 20;
 
+/** Nombre de parties récentes recevant le détail complet (build, runes, courbe d'or). */
+const MATCH_DETAIL_COUNT = 5;
+
 /**
  * Au-delà, une partie terminée n'est plus annoncée.
  *
@@ -77,22 +83,6 @@ export interface SyncReport {
 
 function isTier(value: string): value is Tier {
   return (TIERS as readonly string[]).includes(value);
-}
-
-function toRole(teamPosition: string, individualPosition: string): Role {
-  const raw = (teamPosition || individualPosition || "").toUpperCase();
-  return (ROLES as readonly string[]).includes(raw) ? (raw as Role) : "MIDDLE";
-}
-
-/**
- * `gameDuration` change d'unité selon les patchs : en secondes dès que
- * `gameEndTimestamp` est présent, en millisecondes avant. Riot documente la
- * bascule, et s'y fier évite d'afficher des parties de 37 000 minutes.
- */
-function durationSeconds(info: MatchDto["info"]): number {
-  return info.gameEndTimestamp !== undefined
-    ? info.gameDuration
-    : Math.round(info.gameDuration / 1000);
 }
 
 function toGameRecord(dto: MatchDto, puuid: string): GameRecord | null {
@@ -293,12 +283,16 @@ export async function sync(
         const ids = (await rankedMatchIds(account.region, id, MATCH_PAGE)) ?? [];
         const knownIds = new Set(known.map((g) => g.id));
         const fresh: GameRecord[] = [];
+        const freshDtoByMatch = new Map<string, MatchDto>();
         for (const matchId of ids) {
           if (knownIds.has(matchId)) continue;
           const dto = await match(account.region, matchId);
           if (!dto || dto.info.queueId !== RANKED_SOLO_QUEUE_ID) continue;
           const record = toGameRecord(dto, id);
-          if (record) fresh.push(record);
+          if (record) {
+            fresh.push(record);
+            freshDtoByMatch.set(matchId, dto);
+          }
         }
         if (fresh.length > 0) {
           report.newGames += fresh.length;
@@ -317,6 +311,26 @@ export async function sync(
             ageMaxMs: ANNONCE_AGE_MAX_MS,
             now: startedAt,
           });
+        }
+
+        /* Détail complet (build, runes, courbe d'or) pour les 5 parties les
+           plus récentes seulement — jamais tout l'historique, voir
+           db/migrations/0008_match_details.sql. `ensureMatchDetail` se tait
+           tout seul si le match est déjà en cache (lobby partagé par un
+           autre compte suivi), donc aucun appel réseau en trop ici. Une
+           erreur ici ne doit pas empêcher les étapes 5 et 6 : le scoreboard
+           est un bonus, pas la donnée du classement. */
+        const detailed = [...known, ...fresh]
+          .sort((a, b) => b.endedAt - a.endedAt)
+          .slice(0, MATCH_DETAIL_COUNT);
+        for (const game of detailed) {
+          try {
+            await ensureMatchDetail(account.region, game.id, freshDtoByMatch.get(game.id));
+          } catch (err) {
+            if (err instanceof MissingKeyError) throw err;
+            const message = err instanceof Error ? err.message : String(err);
+            report.errors.push({ account: `${label} · détail ${game.id}`, message });
+          }
         }
       }
 
@@ -360,6 +374,11 @@ export async function sync(
       Date.now(),
       report.errors.length > 0 ? `${report.errors.length} compte(s) en erreur` : null,
     );
+    // Purge globale, peu coûteuse : retire les matchs détaillés sortis du top
+    // 5 de tous les comptes suivis. Inutile sur une synchro ciblée, qui ne
+    // voit qu'une fraction des comptes et purgerait à tort ce que les autres
+    // référencent encore.
+    pruneMatchDetails();
   }
 
   report.calls = callsTotal() - callsBefore;

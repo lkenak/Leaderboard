@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { duration, kdaLabel, relativeTime, shortDate, signed, thousands } from "@/lib/format";
 import { rankFromAbsoluteLp, rankLabel, roleLabel } from "@/lib/lol";
@@ -13,6 +14,10 @@ import { Delta } from "@/components/ui/Delta";
 
 type Tab = "history" | "stats";
 
+/** Seules les parties les plus récentes ont un détail complet en base — voir
+ *  MATCH_DETAIL_COUNT dans lib/riot/sync.ts, source de vérité de cette valeur. */
+const MATCH_DETAIL_COUNT = 5;
+
 /**
  * Panneau dépliable d'une ligne. Deux onglets seulement : l'historique des
  * parties et les agrégats. Un panneau qui en propose six ne sert qu'à cacher
@@ -21,9 +26,11 @@ type Tab = "history" | "stats";
 export function RowDetail({
   entry,
   now,
+  ladderSlug,
 }: {
   entry: RankingEntry;
   now: number;
+  ladderSlug: string;
 }) {
   const [tab, setTab] = useState<Tab>("history");
 
@@ -53,7 +60,7 @@ export function RowDetail({
         </div>
 
         {tab === "history" ? (
-          <HistoryTab entry={entry} now={now} />
+          <HistoryTab entry={entry} now={now} ladderSlug={ladderSlug} />
         ) : (
           <StatsTab entry={entry} />
         )}
@@ -89,7 +96,15 @@ function TabButton({
 
 /* ── Historique ───────────────────────────────────────────────────────────── */
 
-function HistoryTab({ entry, now }: { entry: RankingEntry; now: number }) {
+function HistoryTab({
+  entry,
+  now,
+  ladderSlug,
+}: {
+  entry: RankingEntry;
+  now: number;
+  ladderSlug: string;
+}) {
   if (entry.recentGames.length === 0)
     return (
       <p className="rounded-sm border border-hair bg-panel-2 px-4 py-6 text-center text-[0.8125rem] text-ink-3">
@@ -99,7 +114,7 @@ function HistoryTab({ entry, now }: { entry: RankingEntry; now: number }) {
 
   return (
     <ul className="flex flex-col gap-1.5">
-      {entry.recentGames.map((game) => (
+      {entry.recentGames.map((game, i) => (
         <li
           key={game.id}
           className={cn(
@@ -172,6 +187,15 @@ function HistoryTab({ entry, now }: { entry: RankingEntry; now: number }) {
               {game.win ? "VICTOIRE" : "DÉFAITE"}
             </p>
           </div>
+
+          {i < MATCH_DETAIL_COUNT && (
+            <Link
+              href={`/l/${ladderSlug}/match/${game.id}`}
+              className="shrink-0 rounded-xs border border-hair px-2 py-1.5 text-[0.625rem] font-medium tracking-[0.06em] text-ink-3 uppercase transition-colors hover:border-hair-2 hover:text-ink"
+            >
+              Détail
+            </Link>
+          )}
         </li>
       ))}
     </ul>

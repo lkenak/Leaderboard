@@ -35,6 +35,16 @@ en dessous. Un relevé toutes les 5 minutes reste donc très loin du plafond. Le
 premier relevé d'un plateau neuf est plus lourd (résolution + 20 parties par
 joueur) : compter une à deux minutes, le limiteur étale les appels.
 
+**Détail complet des 5 dernières parties** (`match-details.ts`) ajoute un
+appel `timeline` par partie **neuve et non déjà en cache** parmi les 5 plus
+récentes d'un joueur — jamais pour tout l'historique. Un match partagé par
+plusieurs joueurs suivis (même lobby, ou lobbys de deux ladders différents)
+n'est fetché et stocké qu'une fois : `hasMatchDetail` sert de garde avant tout
+appel. Coût ponctuel à prévoir le jour où cette fonctionnalité est activée sur
+un plateau existant : jusqu'à 5 anciennes parties par compte reçoivent leur
+détail à leur prochaine partie jouée (dédupliqué par lobby partagé), pas
+d'un coup sur tout le plateau.
+
 ## Quand le relevé se déclenche
 
 - **À la visite**, si le dernier relevé dépasse `REFRESH_INTERVAL_MS`
@@ -75,6 +85,8 @@ viennent directement de l'API.
 | `routing.ts` | les deux familles d'hôtes Riot (régionale / plateforme) |
 | `client.ts` | `fetch` limité en débit, 404 attendus, erreurs typées |
 | `sync.ts` | le job : résolution, rangs, parties, partie en cours |
+| `match-mapping.ts` | conversions partagées entre `sync.ts` et `match-details.ts` |
+| `match-details.ts` | détail complet (build, runes, courbe d'or) des 5 dernières parties |
 | `snapshot.ts` | projection du stockage vers le modèle des vues, sans réseau |
 | `refresh.ts` | verrou de processus, âge minimum, déclenchement |
 
@@ -93,6 +105,7 @@ Tous les endpoints utilisés sont en **PUUID** : Riot a retiré les
 | Rang | `GET /lol/league/v4/entries/by-puuid/{puuid}` |
 | Partie en cours | `GET /lol/spectator/v5/active-games/by-summoner/{puuid}` (404 = hors partie) |
 | Historique | `GET /lol/match/v5/matches/by-puuid/{puuid}/ids?queue=420` puis `/matches/{id}` |
+| Détail minute par minute | `GET /lol/match/v5/matches/{id}/timeline` — uniquement pour les 5 parties les plus récentes d'un joueur, voir plus haut |
 
 Deux pièges rencontrés, traités dans le code :
 
